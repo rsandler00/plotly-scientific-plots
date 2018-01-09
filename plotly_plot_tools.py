@@ -28,6 +28,8 @@ def plotHist(data,              # 1D list/np vector of data
             xlbl='',            # plot label
             rm_outliers = False, #1/0 whether to remove outliers or not
             density = True,		# whether to plot PDF or count
+            boxplot = True,     # 1/0 whether to do upper boxplot
+            scatter = True,     # 1/0 add upper scatterplot
             diff_tst = 0):        # 1/0. If 1 assumes we checking for a signif difference from 0
     """
     Plots a 1D histogram using plotly.
@@ -59,19 +61,21 @@ def plotHist(data,              # 1D list/np vector of data
     traces += [hist]
 
     # if data too large only plot a subset
-    if N>maxData:
-        Np = maxData
-        dataToPlot = np.random.choice(data, Np, replace=False)
-    else:
-        dataToPlot, Np = data, N
-    dataPlot = go.Scatter(x=dataToPlot, y=top+np.random.normal(size=Np)*top*jitter, name='data', mode = 'markers',
-                     marker = dict(color='black', size = 2), hoverinfo='x+name')
-    traces += [dataPlot]
+    if scatter:
+        if N>maxData:
+            Np = maxData
+            dataToPlot = np.random.choice(data, Np, replace=False)
+        else:
+            dataToPlot, Np = data, N
+        dataPlot = go.Scatter(x=dataToPlot, y=top+np.random.normal(size=Np)*top*jitter, name='data', mode = 'markers',
+                         marker = dict(color='black', size = 2), hoverinfo='x+name')
+        traces += [dataPlot]
 
     #boxplot
-    bp = boxPlot(stats['med'], np.percentile(data, [25, 75]), rng, mean=stats['mean'],
-                  horiz=True, offset=top * 1.2, plot=False, col='red', showleg=True)
-    traces += bp
+    if boxplot:
+        bp = boxPlot(stats['med'], np.percentile(data, [25, 75]), rng, mean=stats['mean'],
+                      horiz=True, offset=top * 1.2, plot=False, col='red', showleg=True)
+        traces += bp
 
     if diff_tst:
         vertline = go.Scatter(x=[0,0], y=[0,top*1.1], name='x=0', showlegend=1, line=dict(color='black', width=2, dash='dot'))
@@ -88,7 +92,6 @@ def plotHist(data,              # 1D list/np vector of data
                             'hovermode': 'closest',
                            }
                     )
-
     if plot:
         plotfunc = pyo.iplot if in_notebook() else pyo.plot
         plotfunc(fig)
@@ -325,23 +328,41 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
     """
     #TODO: remove outliers
 
+    # 1st convert t ndarray
+
+
+    # 1st convert t ndarray
     if type(x) != np.ndarray:  x = np.array(x)
     if type(y) != np.ndarray:  y = np.array(y)
-        #if any(isinstan8ce(el, list) for el in x):
 
-    if np.issubdtype(x.dtype, np.number):   #given an np array
+    # (1) get N
+    if np.issubdtype(x.dtype, np.number):  # given an np array
         x = np.atleast_2d(x)
         y = np.atleast_2d(y)
         N, Lx = x.shape
-        Lx = np.matlib.repmat(Lx,1,N)
-    else: #given a data array
+    else:  # given a data array
         N = len(x)
+
+    # (2) remove NaNs
+    tmpx, tmpy = [], []
+    for n in range(N):
+        bad = np.atleast_2d(np.isnan(x[n]) | np.isnan(y[n]))
+        tmpx += [x[n][~bad[0]]]
+        tmpy += [y[n][~bad[0]]]
+    x = np.array(tmpx)
+    y = np.array(tmpy)
+
+    # (3) get Lx
+    if np.issubdtype(x.dtype, np.number):  # given an np array
+        N, Lx = x.shape
+        Lx = np.tile(Lx, N)
+    else:  # given a data array
         Lx = [len(l) for l in x]
         Ly = [len(l) for l in y]
         if Lx != Ly: raise ValueError('All x & y vectors must be same length!!!')
 
     # if data has too many points, remove some for speed
-    Iplot = [np.arange(Lx[n]) if Lx[n] < maxdata else np.random.choice(Lx[n][0], size=maxdata, replace=False) for n in range(N)]
+    Iplot = [np.arange(Lx[n]) if Lx[n] < maxdata else np.random.choice(Lx[n], size=maxdata, replace=False) for n in range(N)]
 
     if names is None:
         names = ['Line ' + str(i) for i in range(N)]
@@ -380,6 +401,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
                            opacity=.5, marker={'size': markersize, 'color':cols[n]}) for n in range(N)]
     traces += scatPlot
 
+    annots = []
     if addCorr:
         for n in range(N):
             slope, intercept, R2, p_val, std_err = sp.stats.linregress(x[n], y[n])
@@ -398,8 +420,6 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
                     xref='paper',
                     yref='paper'
                 )])
-            else:
-                annots = []
 
             if addCorrLine:
                 x_rng = [np.min(x[0]), np.max(x[0])]
@@ -1003,6 +1023,53 @@ def removeOutliers(data, stdbnd=6, percclip=[5,95], rmv=True):
 
     return adj, included_data, outliers, rng, stats
 
+def scattermatrix(df,
+                  title = 'Scatterplot Matrix',
+                  plot=True):  # if false, just returns plotly json object
+    """
+    This makes a scattermatrix for data
+    """
+
+    cols = df.columns
+    N = len(cols)
+
+    fig = py.tools.make_subplots(rows=N, cols=N)
+
+    for n1 in range(1,N+1):
+        for n2 in range(1,n1+1):
+            #print('n1:%d, n2:%d' %(n1,n2))
+            if n1==n2:
+                #plot hist
+                ff = plotHist(df[cols[n1-1]],  # 1D list/np vector of data
+                         maxData=500,  # max # of points to plot above histogram (if too high, it will be slow)
+                         plot=False,  # 1/0. If 0, returns plotly json object, but doesnt plot
+                         rm_outliers=True,  # 1/0 whether to remove outliers or not
+                         density=True,  # whether to plot PDF or count
+                         boxplot = 0,
+                         scatter = 0,
+                         diff_tst=0)
+                [fig.append_trace(d, n1, n2) for d in ff.data]
+            if n2 < n1:
+                # plot scatter
+                ff = corrPlot(df[cols[n1-1]],                 # 1D data vector or list of 1D dsata vectors
+                     df[cols[n2-1]],                 # 1D data vector or list of 1D dsata vectors
+                     maxdata=500,      # max # of points to plot above histogram (if too high, it will be slow)
+                     addCorr=False,      # whether to add correlation statistics into plot (R2, spearmanR2, Pvals, & y=mx+b)
+                     addCorrLine=False,     # whether to plot correlation line
+                     addXYline=False,      # whether to plot y=x line
+                     plot=False,         # if false, just returns plotly json object
+                )
+                [fig.append_trace(d, n1, n2) for d in ff.data]
+
+    fig['layout'].update(title=title)
+    fig['layout'].update(showlegend=False)
+    [fig['layout']['yaxis' + str((n-1)*N+1)].update(title=cols[n-1]) for n in range(1,N+1)]
+
+    if plot:
+        plotfunc = pyo.iplot if in_notebook() else pyo.plot
+        plotfunc(fig)
+    else:
+        return fig
 
 
 ###Dash wrappers

@@ -14,7 +14,11 @@ import plotly as py
 import matplotlib.pyplot as plt
 import pdb
 
-def norm_mat(X, X2=None, method='zscore'):
+def norm_mat(X,
+             X2=None,
+             method='zscore',
+             input_bounds=None,
+             output_bounds=(0,1)):
     """
     This normalizes each row of a matrix with various norm options
     :param X: [N,Lx] matrix
@@ -35,6 +39,12 @@ def norm_mat(X, X2=None, method='zscore'):
         if X2 is not None:  # normalize 2nd matrix w/ same methods as 1st
             Y2 = [col / X[i][0] for i, col in enumerate(X2)]
             return Y, Y2
+    if method == 'boundedscale':
+        if input_bounds is None:    #set to min/max of each column
+            input_bounds[0] = np.min(X, axis=0)
+            input_bounds[1] = np.max(X, axis=0)
+        x_std = (X - input_bounds[0]) / (input_bounds[1] - input_bounds[0])
+        Y = x_std * (output_bounds[1] - output_bounds[0]) + output_bounds[0]
     if method == 'non' or method == None:
         Y = X
     return Y

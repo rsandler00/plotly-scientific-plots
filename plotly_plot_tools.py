@@ -14,6 +14,7 @@ import colorlover as cl
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import cufflinks as cf
 
 # personal functions
 #module_path = os.path.abspath(os.path.join('..'))
@@ -781,6 +782,37 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
     else:
         return fig
 
+def plotDF( df,             # pandas DF
+            title='',       # title of plot
+            ylbl ='',       # ylabel
+            linemode='lines',   # 'lines'/'markers'/'lines+markers'
+            plot=True,      # 1/0 whether we want to plot each of the individual lines
+        ):
+    """
+    This plots a pandas DF.
+    NOTE: see also plotly's cufflinks package which makes pnadas plotting super easy!
+        cf.go_offline()
+        df.iplot(kind='scatter')
+    """
+
+    traces = [go.Scatter(x=df.index, y=df[col], name=col, mode=linemode)  for col in df.columns]
+
+    layout = go.Layout(title=title,
+                       xaxis={'title': df.index.name},
+                       yaxis={'title': ylbl},
+                       showlegend=True,
+                       )
+
+    fig = go.Figure(data=traces, layout=layout)
+
+    if plot:
+        plotfunc = pyo.iplot if in_notebook() else pyo.plot
+        plotfunc(fig)
+    else:
+        return fig
+
+
+
 def multiMean(data, x=None, std=True, names=None, plot=True, title='', ylbl='', xlbl='', norm=None, indiv=False, indivnames=None):
     """
     Plots means of multiple data matrices
@@ -1074,17 +1106,26 @@ def scattermatrix(df,
 
 ###Dash wrappers
 def dashSubplot(plots,
-                min_width=18,       # min width of column (in %). If more columns, scrolling is enabled
+                min_width=18,  # min width of column (in %). If more columns, scrolling is enabled
+                max_width=50,  # max width of column (in %).
+                indiv_widths=None,  # can specify list of individual column widths
                 ):
-    Ncol = len(plots)
-    col_width = max(int(100/Ncol-2), min_width)
-    col_style = {'width': str(col_width) + '%',
+
+    Ncol = len(plots)   # number of columns
+
+    if indiv_widths is None:
+        col_width = [min(max_width, max(int(100/Ncol-2), min_width) )] * Ncol
+    else:
+        col_width = indiv_widths
+
+
+    col_style = [{'width': str(col_width[i]) + '%',
              'display': 'inline-block',
              'vertical-align': 'top',
-             'margin-right': '25px'}
+             'margin-right': '25px'} for i in range(Ncol)]
 
     layout = html.Div(
-        [html.Div(plots[i], style=col_style) for i in range(Ncol)],
+        [html.Div(plots[i], style=col_style[i]) for i in range(Ncol)],
         style = {'margin-right': '0px',
                  'position': 'absolute',
                  'width': '100%'}
@@ -1139,5 +1180,4 @@ def in_notebook():
     try:
         return get_ipython().__class__.__name__ == 'ZMQInteractiveShell'
     except:
-        print('www')
         return False

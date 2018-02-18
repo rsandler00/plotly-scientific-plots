@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sp
+import scipy.stats
 import sys
 import os
 import copy
@@ -45,8 +46,9 @@ def plotHist(data,              # 1D list/np vector of data
     N = len(data)
     data = np.array(data)
 
-    # remove NaNs
+    # remove NaNs/infs
     data = data[~np.isnan(data)]
+    data = data[np.isfinite(data)]
 
     adj, corr_data, outliers, rng, stats = removeOutliers(data, stdbnd=6, percclip=[5, 95], rmv=rm_outliers)
 
@@ -84,9 +86,11 @@ def plotHist(data,              # 1D list/np vector of data
         _, Pw = sp.stats.wilcoxon(data)
         title += ' P_t=%.2f. P_w=%.2f' % (Pt, Pw)
 
+    ylbl = 'Probability Density' if density else 'Count'
+
     fig = go.Figure(data=traces,
                    layout={'title':title,
-                            'yaxis':{'title': 'Probability Density'},
+                            'yaxis':{'title': ylbl},
                             'xaxis':{'title': xlbl, 'range': [rng[0]*.9,rng[1]*1.1]},
                             'bargap':0,
                             'hovermode': 'closest',
@@ -864,19 +868,17 @@ def multiMean(data, x=None, std=True, names=None, plot=True, title='', ylbl='', 
     else:
         return fig
 
-def plotHist2D(x, y, bins=[15, 30], xlbl='', ylbl='', title='', log=False, mean=False, plot=True):
+def plotHist2D(x,           # 1D vector
+               y,           # 1D vector
+               bins=[15, 30], # # of bins in histogram
+               xlbl='',
+               ylbl='',
+               title='',
+               log=False,   # whether to log the histogram counts
+               mean=False,  # whether to overlay mean + std dhading onto heatmap
+               plot=True):
     """
     plots 2D heatmap. Does the binning in np as its faster than plotly 2D hist
-    :param x: 1D vector
-    :param y: 1D vector
-    :param bins: # of bins in histogram
-    :param xlbl:
-    :param ylbl:
-    :param title:
-    :param log: whether to log the histogram counts
-    :param mean: whether to overlay mean + std dhading onto heatmap
-    :param plot: if false, just returns plotly json object
-    :return:
     """
     x = np.array(x);
     y = np.array(y)

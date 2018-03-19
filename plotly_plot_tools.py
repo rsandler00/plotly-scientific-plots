@@ -516,6 +516,7 @@ def barPlot(data,           # list of 1D data vectors
             title=' ',      # title of plot
             ylbl='Mean',    # y-label
             bar=True,       # 1/0. If 0, makes boxplot instead of barplot
+            stats=[],       # which stat tests to run, including [ttest, MW, ANOVA, KW] (kruchsal-wallis)
             plot=True):     # 1/0. If 0, just returns fig object
     """
     Makes a custom plotly barplot w/ data on side
@@ -562,10 +563,11 @@ def barPlot(data,           # list of 1D data vectors
         traces += bars
     else:
         #implement boxplot
+        boxwidth = 50
         quartiles = np.array([np.percentile(data[n], [25, 75]) for n in range(N)])
         minmax=np.array([np.percentile(data[n],[5,95]) for n in range(N)])
         boxs = [boxPlot(meds[n], quartiles[n], minmax[n], mean=means[n], outliers=None, name=names[n], horiz=0, offset=n,
-                legendGroup='boxplot', showleg=False, plot=False, col=cols[n], width=12) for n in range(N)]
+                legendGroup='boxplot', showleg=False, plot=False, col=cols[n], width=boxwidth) for n in range(N)]
         traces += sum(boxs,[])
 
     # reduce length of data for plotting
@@ -593,6 +595,22 @@ def barPlot(data,           # list of 1D data vectors
 
     # if data has huge outliers, manually bring axes closer to look better
     auto_rng = np.max([np.max(col) for col in data_to_plot]) < 2*np.max(means+std)
+
+    # stats
+    statvals = []
+    if 'MW' in stats and N==2:
+        stat, pval = sp.stats.mannwhitneyu(data[0], data[1], alternative='two-sided')
+        statvals += [['MW', pval]]
+    if 'ttest' in stats and N==2:
+        stat, pval = sp.stats.ttest_ind(data[0], data[1])
+        statvals += [['T-test', pval]]
+    if 'ANOVA' in stats:
+        print('ANOVA not yet implemented')
+    if 'KW' in stats:
+        print('Kruskal–Wallis test not yet implemented')
+    if len(statvals) > 0:
+        stat_str = '. '.join(['P(%s)=%.3f' % (x[0], x[1]) for x in statvals])
+        title = title + '. ' + stat_str
 
     layout = go.Layout(
         title=title,
@@ -994,7 +1012,7 @@ def boxPlot(med, quartiles, minmax, mean=None, outliers=None, name='boxplot', ho
 
     thickLine = [{wideaxis:quartiles, offsetaxis:[offset]*2,
                     'name':name, 'showlegend':showleg, 'legendgroup':legendGroup, 'type': 'scatter',
-                    'line':{'color': col, 'width': 8}, 'opacity':.4, 'hovertext':text, 'hoverinfo':'name+text',
+                    'line':{'color': col, 'width': width}, 'opacity':.4, 'hovertext':text, 'hoverinfo':'name+text',
                   }]
     thinLine = [{wideaxis:minmax, offsetaxis:[offset]*2,
                     'name':name, 'showlegend':show_indiv_leg, 'legendgroup':legendGroup, 'type': 'scatter',
@@ -1005,9 +1023,13 @@ def boxPlot(med, quartiles, minmax, mean=None, outliers=None, name='boxplot', ho
     boxPlots = thickLine + thinLine + medPoint
     if mean is not None:
         meanPoint = [{wideaxis: [mean], offsetaxis: [offset], 'hovertext':text, 'hoverinfo':'name+text',
-                     'name': name, 'showlegend': show_indiv_leg, 'legendgroup': legendGroup, 'mode': 'markers',
-                     'marker': {'color': 'white', 'symbol': 'diamond', 'size': 8}, 'opacity': 1,
-                     'line':{'color':'black'}}]
+                     'name': name, 'showlegend': show_indiv_leg, 'legendgroup': legendGroup,
+                     'mode': 'markers',
+                     'marker': {'color': 'white', 'symbol': 'diamond', 'size': 8,
+                                'line': {'color':'black', 'width':1}
+                               },
+                     'opacity': 1,
+                     'line': {'color':'black'}}]
         boxPlots += meanPoint
     if outliers is not None:
         outlierplot = [{wideaxis:outliers, offsetaxis:[offset]*len(outliers), 'name':name, 'legendgroup':legendGroup,

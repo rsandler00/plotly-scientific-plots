@@ -28,8 +28,7 @@ def norm_mat(X,
                     If 'baseline', than norm'd by 1st element of vector
     :return: Y - norm'd matrix
     """
-    print(X)
-    print(X.shape)
+
     if X.ndim == 1:
         X = np.atleast_2d(np.array(X)).T
     nCol, Lx = X.shape

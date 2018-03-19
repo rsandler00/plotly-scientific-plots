@@ -17,7 +17,7 @@ import pdb
 def norm_mat(X,
              X2=None,
              method='zscore',
-             input_bounds=None,
+             input_bounds=[],
              output_bounds=(0,1)):
     """
     This normalizes each row of a matrix with various norm options
@@ -28,7 +28,10 @@ def norm_mat(X,
                     If 'baseline', than norm'd by 1st element of vector
     :return: Y - norm'd matrix
     """
-    X = np.atleast_2d(np.array(X))
+    print(X)
+    print(X.shape)
+    if X.ndim == 1:
+        X = np.atleast_2d(np.array(X)).T
     nCol, Lx = X.shape
     if not isinstance(method, str):
         Y = np.array([col/np.linalg.norm(col,method) for col in X])
@@ -40,9 +43,9 @@ def norm_mat(X,
             Y2 = [col / X[i][0] for i, col in enumerate(X2)]
             return Y, Y2
     if method == 'boundedscale':
-        if input_bounds is None:    #set to min/max of each column
-            input_bounds[0] = np.min(X, axis=0)
-            input_bounds[1] = np.max(X, axis=0)
+        if input_bounds == []:    #set to min/max of each column
+            input_bounds += [np.min(X, axis=0)]
+            input_bounds += [np.max(X, axis=0)]
         x_std = (X - input_bounds[0]) / (input_bounds[1] - input_bounds[0])
         Y = x_std * (output_bounds[1] - output_bounds[0]) + output_bounds[0]
     if method == 'non' or method == None:

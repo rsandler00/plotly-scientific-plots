@@ -213,6 +213,7 @@ def plot2Hists(x1,              # data of 1st histogram
     else:
         return fig
 
+
 def plotPolar(data,         # N-d list/numpy array
               names=None,   # names of cols in data (ex:['A', 'B']
               scatter= True, # whether to do polar scatter plot. Only works if N=1
@@ -313,8 +314,10 @@ def plotPolar(data,         # N-d list/numpy array
     else:
         return fig
 
+
 def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
              y,                 # 1D data vector or list of 1D dsata vectors
+             z=None,            # optional colors for the lines
              names=None,        # names of x, y (ex:['A', 'B']
              maxdata=2010,      # max # of points to plot above histogram (if too high, it will be slow)
              addCorr=True,      # whether to add correlation statistics into plot (R2, spearmanR2, Pvals, & y=mx+b)
@@ -372,14 +375,30 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
 
     traces = []
 
-    if N>1:
-        lg = names
+    # determine scatterpoint colors
+    if z is not None:
+        assert N==1, 'So far coloring only works w/ 1 data series'
+        if type(z) != np.ndarray:  z = np.array(z)
+        z = np.atleast_2d(z)
+        cols = z
+        line_col = ['black']
+        lg = [None]
         showleg = False
-        cols = cl.scales[str(max(3, N))]['qual']['Set1']
+        showscale = True
+        scattertext = ['z=%d' % (i) for i in range(Lx[0])]
     else:
-        lg=[None]
-        showleg = True
-        cols=['blue']
+        if N>1:
+            lg = names
+            showleg = False
+            cols = cl.scales[str(max(3, N))]['qual']['Set1']
+        else:
+            lg=[None]
+            showleg = True
+            cols=['blue']
+        line_col = cols
+        showscale = False
+        scattertext = ''
+
 
     # scale markersize
     Lxp = np.min([max(Lx),maxdata])
@@ -399,7 +418,9 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
         markersize = 9
 
     scatPlot = [go.Scatter(x=x[n][Iplot[n]], y=y[n][Iplot[n]], name=names[n], legendgroup=lg[n], mode='markers',
-                           opacity=.5, marker={'size': markersize, 'color':cols[n]}) for n in range(N)]
+                           opacity=.5, text=scattertext,
+                           marker={'size': markersize, 'color':cols[n], 'showscale':showscale, 'colorscale':'Portland'})
+                for n in range(N)]
     traces += scatPlot
 
     annots = []
@@ -429,7 +450,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
                 xc = np.array([x_rng[0]+dx_rng*shift, x_rng[1]-dx_rng*shift])
                 yc = slope*xc + intercept
                 corrline = [go.Scatter(x=xc, y=yc, name=names[n]+' corr', legendgroup=lg[n], showlegend=showleg,
-                            mode='lines', line={'color':cols[n]}, hovertext=corrtext, hoverinfo='name+text')]
+                            mode='lines', line={'color':line_col[n]}, hovertext=corrtext, hoverinfo='name+text')]
                 traces += corrline
 
     if addXYline:
@@ -455,6 +476,40 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
     else:
         return fig
 
+
+def basicBarPlot(data, names=None, title='', ylbl='', text=None, orient=None, line=None, plot=True):
+    """
+    Makes a basic bar plot where data is [n,1] list of values. No averaging/etc... For that see barPlot or propBarPlot
+    """
+
+    traces = [go.Bar(x=names, y=data, text=text, textposition='auto',
+                    marker=dict(
+                        color='rgb(158,202,225)',
+                        line=dict(
+                            color='rgb(8,48,107)',
+                            width=1.5),
+                    ),
+                    opacity=0.6)
+              ]
+
+    layout = go.Layout(
+            title=title,
+            yaxis={'title': ylbl},
+            hovermode='closest',
+    )
+    if line:
+        layout.shapes = [hline(line)]
+
+    fig = go.Figure(data=traces, layout=layout)
+
+    if plot:
+        plotfunc = pyo.iplot if in_notebook() else pyo.plot
+        plotfunc(fig)
+    else:
+        return fig
+
+    return None
+
 def barPlot(data,           # list of 1D data vectors
             names=None,     # names of data vectors
             maxData=500,    # max # of points to plot above histogram (if too high, it will be slow)
@@ -466,16 +521,22 @@ def barPlot(data,           # list of 1D data vectors
     Makes a custom plotly barplot w/ data on side
     :return:
     """
+    # TODO: add outlier removal
+
     data = np.array(data)
     N = len(data)
     Lx = [len(col) for col in data]
 
     if names is None:
         names = [str(i + 1) for i in range(N)]
-    if N>=3:
+
+    if N<3:
+        cols = cl.scales[str(3)]['qual']['Set1'][0:N]
+    elif N<10:
         cols = cl.scales[str(N)]['qual']['Set1']
     else:
-        cols = cl.scales[str(3)]['qual']['Set1'][0:N]
+        cols=[None]*N
+
     jitter = .03
 
     means = [np.mean(col) for col in data]
@@ -552,6 +613,7 @@ def barPlot(data,           # list of 1D data vectors
 
     return None
 
+
 def propBarPlot(data,           # list of 1D data vectors
             names=None,     # names of data vectors
             title=' ',      # title of plot
@@ -625,77 +687,6 @@ def propBarPlot(data,           # list of 1D data vectors
 
     return None
 
-def propBarPlot(data,           # list of 1D data vectors
-            names=None,     # names of data vectors
-            title=' ',      # title of plot
-            ylbl='Proportion',    # y-label\
-            plot=True):
-    """
-        Makes a custom plotly proportion barplot
-        :return:
-        """
-    data = np.array(data)
-    N = len(data)
-    Lx = [len(col) for col in data]
-
-    if names is None:
-        names = [str(i + 1) for i in range(N)]
-    if N >= 3:
-        cols = cl.scales[str(N)]['qual']['Set1']
-    else:
-        cols = cl.scales[str(3)]['qual']['Set1'][0:N]
-    jitter = .03
-
-    means = [np.mean(col) for col in data]
-    std = [((means[n]*(1-means[n]))/Lx[n])**.5 for n in range(N)]
-
-    traces = []
-    bars = [go.Bar(
-        x=list(range(N)),
-        y=means,
-        marker=dict(
-            color=cols),
-        text=['N = %.4f' % (l) for l in Lx],
-        name='BAR',
-        error_y=dict(
-            type='data',
-            array=std,
-            visible=True
-        ),
-        showlegend=False
-    )]
-    traces += bars
-
-    xaxis = go.XAxis(
-        # title="",
-        showgrid=True,
-        showline=True,
-        ticks="",
-        showticklabels=True,
-        linewidth=2,
-        ticktext=names,
-        tickvals=list(range(N)),
-        tickfont=dict(size=18)
-    )
-
-    layout = go.Layout(
-        title=title,
-        xaxis=xaxis,
-        yaxis={'title': ylbl, 'range': [0, np.max(means + std) * 2]},
-        bargap=.5,
-        hovermode='closest',
-        showlegend=False,
-    )
-
-    fig = go.Figure(data=traces, layout=layout)
-
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
-
-    return None
 
 def multiLine(data,         # [N,Lx] numpy array or list, where rows are each line
               x=None,       # optional x-data
@@ -781,6 +772,7 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
         plotfunc(fig)
     else:
         return fig
+
 
 def plotDF( df,             # pandas DF
             title='',       # title of plot
@@ -1103,6 +1095,39 @@ def scattermatrix(df,
     else:
         return fig
 
+## Plotly plot subcomponents
+def abs_line(position, orientation, color='r', width=3, annotation=None):
+    if orientation == 'v':
+        big = 'x'
+        lil = 'y'
+    elif orientation == 'h':
+        big = 'y'
+        lil = 'x'
+    else:
+        print('ERROR: orientation must be either "v" or "h"')
+
+    shape = {
+        'type': 'line',
+        big+'ref': big,
+        lil+'ref': 'paper',
+        big+'0': position,
+        big+'1': position,
+        lil+'0': 0,
+        lil+'1': 1,
+        'line': {
+            'color': color,
+            'width': width,
+        },
+    }
+
+    return shape
+
+def vline(position, **params):
+    return abs_line(position, orientation='v', **params)
+
+def hline(position, **params):
+    out = abs_line(position, orientation='h', **params)
+    return out
 
 ###Dash wrappers
 def dashSubplot(plots,

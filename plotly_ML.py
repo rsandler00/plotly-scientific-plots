@@ -18,6 +18,9 @@ import matplotlib.pyplot as plt
 from plotly_plot_tools import in_notebook
 import colorlover as cl
 
+perc = lambda x: np.sum(x)/len(x)*100
+
+
 def plotMultiROC(y_true,        # list of true labels
                     y_scores,   # array of scores for each class of shape [n_samples, n_classes]
                     title = 'Multiclass ROC Plot',
@@ -31,18 +34,24 @@ def plotMultiROC(y_true,        # list of true labels
     y_true = np.array(y_true)
     y_scores = np.array(y_scores)
     N, n_classes = y_scores.shape
+    if n_classes == 1:  # needed to avoid inverting when doing binary classification
+        y_scores = -1*y_scores
 
     # calc ROC curves & AUC
     fpr = dict()
     tpr = dict()
+    thresh = dict()
+    thresh_txt = dict()
     roc_auc = dict()
     for i in range(n_classes):
-        fpr[i], tpr[i], _ = sk.metrics.roc_curve(y_true == i, y_scores[:, i])
+        fpr[i], tpr[i], thresh[i] = sk.metrics.roc_curve(y_true == i, y_scores[:, i])
         roc_auc[i] = sk.metrics.auc(fpr[i], tpr[i])
+        thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
 
     # make traces
+    
     traces = []
-    [traces.append(go.Scatter(y=tpr[i], x=fpr[i], name=labels[i] + '. AUC= %.2f' % (roc_auc[i]),
+    [traces.append(go.Scatter(y=tpr[i], x=fpr[i], name=labels[i] + '. AUC= %.2f' % (roc_auc[i]), text=thresh_txt[i],
                               line={'width': 1})) for i in range(n_classes)]
     traces += [go.Scatter(y=[0, 1], x=[0, 1], name='Random classifier', line={'width': 1, 'dash': 'dot'})]
 
@@ -62,6 +71,7 @@ def plotMultiROC(y_true,        # list of true labels
     else:
         return fig
 
+
 def plotMultiPR(y_true,        # list of true labels
                     y_scores,   # array of scores for each class of shape [n_samples, n_classes]
                     title = 'Multiclass PR Plot',
@@ -75,21 +85,26 @@ def plotMultiPR(y_true,        # list of true labels
     y_true = np.array(y_true)
     y_scores = np.array(y_scores)
     N, n_classes = y_scores.shape
+    if n_classes == 1:  # needed to avoid inverting when doing binary classification
+        y_scores = -1*y_scores
 
     # calc ROC curves & AUC
     precision = dict()
     recall = dict()
     pr_auc = dict()
+    thresh = dict()
+    thresh_txt = dict()
     for i in range(n_classes):
-        precision[i], recall[i], _ = sk.metrics.precision_recall_curve(y_true == i, y_scores[:, i])
+        precision[i], recall[i], thresh[i] = sk.metrics.precision_recall_curve(y_true == i, y_scores[:, i])
         #average_precision[i] = average_precision_score(Y_test[:, i], y_score[:, i])
         #pr_auc[i] = sk.metrics.auc(precision[i], recall[i])
         pr_auc[i] = 1
+        thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
 
     # make traces
     traces = []
-    [traces.append(go.Scatter(y=precision[i], x=recall[i], name=labels[i] + '. AUC= %.2f' % (pr_auc[i]),
-                              line={'width': 1})) for i in range(n_classes)]
+    [traces.append(go.Scatter(y=precision[i], x=recall[i], name=labels[i] + '. AUC= %.2f' % (pr_auc[i]), 
+                        text=thresh_txt[i], line={'width': 1})) for i in range(n_classes)]
 
     # make layout
     layout = go.Layout(title=title,
@@ -114,6 +129,7 @@ def plotConfusionMatrix(y_true, # list of true labels
                         binarized = None, # if int/str then makes 1vsAll confusion matrix of that class
                         add_totals = True, # whether to add an extra row for class totals
                         plot = True, # 1/0. If 0, returns plotly json object, but doesnt plot
+                        fontsize=18,
                 ):
     """
     Plots either a full or binarized confusion matrix
@@ -136,6 +152,8 @@ def plotConfusionMatrix(y_true, # list of true labels
         conf_matrix = np.array([[tp, fn], [fp, tn]])
         labels = ['T','F']
 
+    labels = ['['+x+']' if len(x)==1 else x for x in labels]    #needed for stupid plotly bug
+
     # adds an extra row for matrix totals
     if add_totals:
         conf_matrix = np.vstack((conf_matrix, np.sum(conf_matrix, 0)))
@@ -148,7 +166,13 @@ def plotConfusionMatrix(y_true, # list of true labels
     fig = ff.create_annotated_heatmap(conf_matrix, x=labels_short, y=labels_short, colorscale='Viridis')
     fig.layout.yaxis.autorange = 'reversed'
     fig.layout.yaxis.title = 'True'
-    fig.layout.xaxis.title = 'Predicted'
+    fig.layout.xaxis.title = 'Predicted (Total accuracy = %.3f%%)' % perc(y_true==y_pred)
+    fig.layout.xaxis.titlefont.size = fontsize
+    fig.layout.yaxis.titlefont.size = fontsize
+    fig.layout.xaxis.tickfont.size = fontsize - 2
+    fig.layout.yaxis.tickfont.size = fontsize - 2
+    for i in range(len(fig.layout.annotations)):
+        fig.layout.annotations[i].font.size = fontsize-3
 
     if plot:
         plotfunc = pyo.iplot if in_notebook() else pyo.plot

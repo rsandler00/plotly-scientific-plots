@@ -1,6 +1,5 @@
 import numpy as np
 import scipy as sp
-import scipy.stats
 import sys
 import os
 import copy
@@ -15,6 +14,7 @@ import colorlover as cl
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import cufflinks as cf
 
 # personal functions
 #module_path = os.path.abspath(os.path.join('..'))
@@ -46,9 +46,8 @@ def plotHist(data,              # 1D list/np vector of data
     N = len(data)
     data = np.array(data)
 
-    # remove NaNs/infs
+    # remove NaNs
     data = data[~np.isnan(data)]
-    data = data[np.isfinite(data)]
 
     adj, corr_data, outliers, rng, stats = removeOutliers(data, stdbnd=6, percclip=[5, 95], rmv=rm_outliers)
 
@@ -86,11 +85,9 @@ def plotHist(data,              # 1D list/np vector of data
         _, Pw = sp.stats.wilcoxon(data)
         title += ' P_t=%.2f. P_w=%.2f' % (Pt, Pw)
 
-    ylbl = 'Probability Density' if density else 'Count'
-
     fig = go.Figure(data=traces,
                    layout={'title':title,
-                            'yaxis':{'title': ylbl},
+                            'yaxis':{'title': 'Probability Density'},
                             'xaxis':{'title': xlbl, 'range': [rng[0]*.9,rng[1]*1.1]},
                             'bargap':0,
                             'hovermode': 'closest',
@@ -216,6 +213,7 @@ def plot2Hists(x1,              # data of 1st histogram
     else:
         return fig
 
+
 def plotPolar(data,         # N-d list/numpy array
               names=None,   # names of cols in data (ex:['A', 'B']
               scatter= True, # whether to do polar scatter plot. Only works if N=1
@@ -316,8 +314,10 @@ def plotPolar(data,         # N-d list/numpy array
     else:
         return fig
 
+
 def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
              y,                 # 1D data vector or list of 1D dsata vectors
+             z=None,            # optional colors for the lines
              names=None,        # names of x, y (ex:['A', 'B']
              maxdata=2010,      # max # of points to plot above histogram (if too high, it will be slow)
              addCorr=True,      # whether to add correlation statistics into plot (R2, spearmanR2, Pvals, & y=mx+b)
@@ -375,14 +375,30 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
 
     traces = []
 
-    if N>1:
-        lg = names
+    # determine scatterpoint colors
+    if z is not None:
+        assert N==1, 'So far coloring only works w/ 1 data series'
+        if type(z) != np.ndarray:  z = np.array(z)
+        z = np.atleast_2d(z)
+        cols = z
+        line_col = ['black']
+        lg = [None]
         showleg = False
-        cols = cl.scales[str(max(3, N))]['qual']['Set1']
+        showscale = True
+        scattertext = ['z=%d' % (i) for i in range(Lx[0])]
     else:
-        lg=[None]
-        showleg = True
-        cols=['blue']
+        if N>1:
+            lg = names
+            showleg = False
+            cols = cl.scales[str(max(3, N))]['qual']['Set1']
+        else:
+            lg=[None]
+            showleg = True
+            cols=['blue']
+        line_col = cols
+        showscale = False
+        scattertext = ''
+
 
     # scale markersize
     Lxp = np.min([max(Lx),maxdata])
@@ -402,7 +418,9 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
         markersize = 9
 
     scatPlot = [go.Scatter(x=x[n][Iplot[n]], y=y[n][Iplot[n]], name=names[n], legendgroup=lg[n], mode='markers',
-                           opacity=.5, marker={'size': markersize, 'color':cols[n]}) for n in range(N)]
+                           opacity=.5, text=scattertext,
+                           marker={'size': markersize, 'color':cols[n], 'showscale':showscale, 'colorscale':'Portland'})
+                for n in range(N)]
     traces += scatPlot
 
     annots = []
@@ -432,7 +450,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
                 xc = np.array([x_rng[0]+dx_rng*shift, x_rng[1]-dx_rng*shift])
                 yc = slope*xc + intercept
                 corrline = [go.Scatter(x=xc, y=yc, name=names[n]+' corr', legendgroup=lg[n], showlegend=showleg,
-                            mode='lines', line={'color':cols[n]}, hovertext=corrtext, hoverinfo='name+text')]
+                            mode='lines', line={'color':line_col[n]}, hovertext=corrtext, hoverinfo='name+text')]
                 traces += corrline
 
     if addXYline:
@@ -458,27 +476,70 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
     else:
         return fig
 
+
+def basicBarPlot(data, names=None, title='', ylbl='', text=None, orient=None, line=None, plot=True):
+    """
+    Makes a basic bar plot where data is [n,1] list of values. No averaging/etc... For that see barPlot or propBarPlot
+    """
+
+    traces = [go.Bar(x=names, y=data, text=text, textposition='auto',
+                    marker=dict(
+                        color='rgb(158,202,225)',
+                        line=dict(
+                            color='rgb(8,48,107)',
+                            width=1.5),
+                    ),
+                    opacity=0.6)
+              ]
+
+    layout = go.Layout(
+            title=title,
+            yaxis={'title': ylbl},
+            hovermode='closest',
+    )
+    if line:
+        layout.shapes = [hline(line)]
+
+    fig = go.Figure(data=traces, layout=layout)
+
+    if plot:
+        plotfunc = pyo.iplot if in_notebook() else pyo.plot
+        plotfunc(fig)
+    else:
+        return fig
+
+    return None
+
 def barPlot(data,           # list of 1D data vectors
             names=None,     # names of data vectors
             maxData=500,    # max # of points to plot above histogram (if too high, it will be slow)
             title=' ',      # title of plot
             ylbl='Mean',    # y-label
             bar=True,       # 1/0. If 0, makes boxplot instead of barplot
+            stats=[],       # which stat tests to run, including [ttest, MW, ANOVA, KW] (kruchsal-wallis)
             plot=True):     # 1/0. If 0, just returns fig object
     """
     Makes a custom plotly barplot w/ data on side
     :return:
     """
+    # TODO: add outlier removal
+
     data = np.array(data)
     N = len(data)
     Lx = [len(col) for col in data]
+    # remove NaNs
+    data = [removeNaN(col) for col in data]
 
     if names is None:
         names = [str(i + 1) for i in range(N)]
-    if N>=3:
+
+    if N<3:
+        cols = cl.scales[str(3)]['qual']['Set1'][0:N]
+    elif N<10:
         cols = cl.scales[str(N)]['qual']['Set1']
     else:
-        cols = cl.scales[str(3)]['qual']['Set1'][0:N]
+        cols=[None]*N
+
     jitter = .03
 
     means = [np.mean(col) for col in data]
@@ -504,11 +565,27 @@ def barPlot(data,           # list of 1D data vectors
         traces += bars
     else:
         #implement boxplot
+        boxwidth = 50
         quartiles = np.array([np.percentile(data[n], [25, 75]) for n in range(N)])
         minmax=np.array([np.percentile(data[n],[5,95]) for n in range(N)])
         boxs = [boxPlot(meds[n], quartiles[n], minmax[n], mean=means[n], outliers=None, name=names[n], horiz=0, offset=n,
-                legendGroup='boxplot', showleg=False, plot=False, col=cols[n], width=12) for n in range(N)]
+                legendGroup='boxplot', showleg=False, plot=False, col=cols[n], width=boxwidth) for n in range(N)]
         traces += sum(boxs,[])
+
+    # scale markersize
+    Lxp = np.max(Lx)
+    if Lxp > 5000:
+        markersize = 1
+    elif Lxp > 2000:
+        markersize = 2
+    elif Lxp > 1000:
+        markersize = 3
+    elif Lxp > 200:
+        markersize = 4
+    elif Lxp > 80:
+        markersize = 5
+    else:
+        markersize = 7
 
     # reduce length of data for plotting
     data_to_plot = [np.random.choice(col, maxData, replace=False) if len(col) > maxData else col for col in data]
@@ -516,7 +593,7 @@ def barPlot(data,           # list of 1D data vectors
     dataPlot = [go.Scatter(x=i + .5 + np.random.normal(size=len(data_to_plot[i])) * jitter,
                            y=data_to_plot[i],
                            mode='markers',
-                           marker=dict(size=2, color=cols[i]),
+                           marker=dict(size=markersize, color=cols[i]),
                            name=names[i])
                 for i in range(N)]
     traces += dataPlot
@@ -536,6 +613,22 @@ def barPlot(data,           # list of 1D data vectors
     # if data has huge outliers, manually bring axes closer to look better
     auto_rng = np.max([np.max(col) for col in data_to_plot]) < 2*np.max(means+std)
 
+    # stats
+    statvals = []
+    if 'MW' in stats and N==2:
+        stat, pval = sp.stats.mannwhitneyu(data[0], data[1], alternative='two-sided')
+        statvals += [['MW', pval]]
+    if 'ttest' in stats and N==2:
+        stat, pval = sp.stats.ttest_ind(data[0], data[1])
+        statvals += [['T-test', pval]]
+    if 'ANOVA' in stats:
+        print('ANOVA not yet implemented')
+    if 'KW' in stats:
+        print('Kruskal–Wallis test not yet implemented')
+    if len(statvals) > 0:
+        stat_str = '. '.join(['P(%s)=%.3f' % (x[0], x[1]) for x in statvals])
+        title = title + '. ' + stat_str
+
     layout = go.Layout(
         title=title,
         xaxis=xaxis,
@@ -554,6 +647,7 @@ def barPlot(data,           # list of 1D data vectors
         return fig
 
     return None
+
 
 def propBarPlot(data,           # list of 1D data vectors
             names=None,     # names of data vectors
@@ -628,77 +722,6 @@ def propBarPlot(data,           # list of 1D data vectors
 
     return None
 
-def propBarPlot(data,           # list of 1D data vectors
-            names=None,     # names of data vectors
-            title=' ',      # title of plot
-            ylbl='Proportion',    # y-label\
-            plot=True):
-    """
-        Makes a custom plotly proportion barplot
-        :return:
-        """
-    data = np.array(data)
-    N = len(data)
-    Lx = [len(col) for col in data]
-
-    if names is None:
-        names = [str(i + 1) for i in range(N)]
-    if N >= 3:
-        cols = cl.scales[str(N)]['qual']['Set1']
-    else:
-        cols = cl.scales[str(3)]['qual']['Set1'][0:N]
-    jitter = .03
-
-    means = [np.mean(col) for col in data]
-    std = [((means[n]*(1-means[n]))/Lx[n])**.5 for n in range(N)]
-
-    traces = []
-    bars = [go.Bar(
-        x=list(range(N)),
-        y=means,
-        marker=dict(
-            color=cols),
-        text=['N = %.4f' % (l) for l in Lx],
-        name='BAR',
-        error_y=dict(
-            type='data',
-            array=std,
-            visible=True
-        ),
-        showlegend=False
-    )]
-    traces += bars
-
-    xaxis = go.XAxis(
-        # title="",
-        showgrid=True,
-        showline=True,
-        ticks="",
-        showticklabels=True,
-        linewidth=2,
-        ticktext=names,
-        tickvals=list(range(N)),
-        tickfont=dict(size=18)
-    )
-
-    layout = go.Layout(
-        title=title,
-        xaxis=xaxis,
-        yaxis={'title': ylbl, 'range': [0, np.max(means + std) * 2]},
-        bargap=.5,
-        hovermode='closest',
-        showlegend=False,
-    )
-
-    fig = go.Figure(data=traces, layout=layout)
-
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
-
-    return None
 
 def multiLine(data,         # [N,Lx] numpy array or list, where rows are each line
               x=None,       # optional x-data
@@ -785,6 +808,38 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
     else:
         return fig
 
+
+def plotDF( df,             # pandas DF
+            title='',       # title of plot
+            ylbl ='',       # ylabel
+            linemode='lines',   # 'lines'/'markers'/'lines+markers'
+            plot=True,      # 1/0 whether we want to plot each of the individual lines
+        ):
+    """
+    This plots a pandas DF.
+    NOTE: see also plotly's cufflinks package which makes pnadas plotting super easy!
+        cf.go_offline()
+        df.iplot(kind='scatter')
+    """
+
+    traces = [go.Scatter(x=df.index, y=df[col], name=col, mode=linemode)  for col in df.columns]
+
+    layout = go.Layout(title=title,
+                       xaxis={'title': df.index.name},
+                       yaxis={'title': ylbl},
+                       showlegend=True,
+                       )
+
+    fig = go.Figure(data=traces, layout=layout)
+
+    if plot:
+        plotfunc = pyo.iplot if in_notebook() else pyo.plot
+        plotfunc(fig)
+    else:
+        return fig
+
+
+
 def multiMean(data, x=None, std=True, names=None, plot=True, title='', ylbl='', xlbl='', norm=None, indiv=False, indivnames=None):
     """
     Plots means of multiple data matrices
@@ -868,17 +923,19 @@ def multiMean(data, x=None, std=True, names=None, plot=True, title='', ylbl='', 
     else:
         return fig
 
-def plotHist2D(x,           # 1D vector
-               y,           # 1D vector
-               bins=[15, 30], # # of bins in histogram
-               xlbl='',
-               ylbl='',
-               title='',
-               log=False,   # whether to log the histogram counts
-               mean=False,  # whether to overlay mean + std dhading onto heatmap
-               plot=True):
+def plotHist2D(x, y, bins=[15, 30], xlbl='', ylbl='', title='', log=False, mean=False, plot=True):
     """
     plots 2D heatmap. Does the binning in np as its faster than plotly 2D hist
+    :param x: 1D vector
+    :param y: 1D vector
+    :param bins: # of bins in histogram
+    :param xlbl:
+    :param ylbl:
+    :param title:
+    :param log: whether to log the histogram counts
+    :param mean: whether to overlay mean + std dhading onto heatmap
+    :param plot: if false, just returns plotly json object
+    :return:
     """
     x = np.array(x);
     y = np.array(y)
@@ -972,7 +1029,7 @@ def boxPlot(med, quartiles, minmax, mean=None, outliers=None, name='boxplot', ho
 
     thickLine = [{wideaxis:quartiles, offsetaxis:[offset]*2,
                     'name':name, 'showlegend':showleg, 'legendgroup':legendGroup, 'type': 'scatter',
-                    'line':{'color': col, 'width': 8}, 'opacity':.4, 'hovertext':text, 'hoverinfo':'name+text',
+                    'line':{'color': col, 'width': width}, 'opacity':.4, 'hovertext':text, 'hoverinfo':'name+text',
                   }]
     thinLine = [{wideaxis:minmax, offsetaxis:[offset]*2,
                     'name':name, 'showlegend':show_indiv_leg, 'legendgroup':legendGroup, 'type': 'scatter',
@@ -983,9 +1040,13 @@ def boxPlot(med, quartiles, minmax, mean=None, outliers=None, name='boxplot', ho
     boxPlots = thickLine + thinLine + medPoint
     if mean is not None:
         meanPoint = [{wideaxis: [mean], offsetaxis: [offset], 'hovertext':text, 'hoverinfo':'name+text',
-                     'name': name, 'showlegend': show_indiv_leg, 'legendgroup': legendGroup, 'mode': 'markers',
-                     'marker': {'color': 'white', 'symbol': 'diamond', 'size': 8}, 'opacity': 1,
-                     'line':{'color':'black'}}]
+                     'name': name, 'showlegend': show_indiv_leg, 'legendgroup': legendGroup,
+                     'mode': 'markers',
+                     'marker': {'color': 'white', 'symbol': 'diamond', 'size': 8,
+                                'line': {'color':'black', 'width':1}
+                               },
+                     'opacity': 1,
+                     'line': {'color':'black'}}]
         boxPlots += meanPoint
     if outliers is not None:
         outlierplot = [{wideaxis:outliers, offsetaxis:[offset]*len(outliers), 'name':name, 'legendgroup':legendGroup,
@@ -1073,20 +1134,67 @@ def scattermatrix(df,
     else:
         return fig
 
+## Plotly plot subcomponents
+def abs_line(position, orientation, color='r', width=3, annotation=None):
+    if orientation == 'v':
+        big = 'x'
+        lil = 'y'
+    elif orientation == 'h':
+        big = 'y'
+        lil = 'x'
+    else:
+        print('ERROR: orientation must be either "v" or "h"')
+
+    shape = {
+        'type': 'line',
+        big+'ref': big,
+        lil+'ref': 'paper',
+        big+'0': position,
+        big+'1': position,
+        lil+'0': 0,
+        lil+'1': 1,
+        'line': {
+            'color': color,
+            'width': width,
+        },
+    }
+
+    return shape
+
+def vline(position, **params):
+    return abs_line(position, orientation='v', **params)
+
+def hline(position, **params):
+    out = abs_line(position, orientation='h', **params)
+    return out
+
+## misc utility functions
+def removeNaN(x):
+    # This function removes NaNs
+    return x[~np.isnan(x)]
 
 ###Dash wrappers
 def dashSubplot(plots,
-                min_width=18,       # min width of column (in %). If more columns, scrolling is enabled
+                min_width=18,  # min width of column (in %). If more columns, scrolling is enabled
+                max_width=50,  # max width of column (in %).
+                indiv_widths=None,  # can specify list of individual column widths
                 ):
-    Ncol = len(plots)
-    col_width = max(int(100/Ncol-2), min_width)
-    col_style = {'width': str(col_width) + '%',
+
+    Ncol = len(plots)   # number of columns
+
+    if indiv_widths is None:
+        col_width = [min(max_width, max(int(100/Ncol-2), min_width) )] * Ncol
+    else:
+        col_width = indiv_widths
+
+
+    col_style = [{'width': str(col_width[i]) + '%',
              'display': 'inline-block',
              'vertical-align': 'top',
-             'margin-right': '25px'}
+             'margin-right': '25px'} for i in range(Ncol)]
 
     layout = html.Div(
-        [html.Div(plots[i], style=col_style) for i in range(Ncol)],
+        [html.Div(plots[i], style=col_style[i]) for i in range(Ncol)],
         style = {'margin-right': '0px',
                  'position': 'absolute',
                  'width': '100%'}
@@ -1141,5 +1249,4 @@ def in_notebook():
     try:
         return get_ipython().__class__.__name__ == 'ZMQInteractiveShell'
     except:
-        print('www')
         return False

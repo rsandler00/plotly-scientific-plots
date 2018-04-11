@@ -1143,3 +1143,11 @@ def in_notebook():
     except:
         print('www')
         return False
+
+
+########## ADD
+
+def add_jitter(data,std_ratio=.03):
+    std = np.std(data)
+    data_out = data + np.random.normal(0, std*std_ratio, size=data.shape)
+    return data_out

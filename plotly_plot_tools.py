@@ -527,6 +527,8 @@ def barPlot(data,           # list of 1D data vectors
     data = np.array(data)
     N = len(data)
     Lx = [len(col) for col in data]
+    # remove NaNs
+    data = [removeNaN(col) for col in data]
 
     if names is None:
         names = [str(i + 1) for i in range(N)]
@@ -570,13 +572,28 @@ def barPlot(data,           # list of 1D data vectors
                 legendGroup='boxplot', showleg=False, plot=False, col=cols[n], width=boxwidth) for n in range(N)]
         traces += sum(boxs,[])
 
+    # scale markersize
+    Lxp = np.max(Lx)
+    if Lxp > 5000:
+        markersize = 1
+    elif Lxp > 2000:
+        markersize = 2
+    elif Lxp > 1000:
+        markersize = 3
+    elif Lxp > 200:
+        markersize = 4
+    elif Lxp > 80:
+        markersize = 5
+    else:
+        markersize = 7
+
     # reduce length of data for plotting
     data_to_plot = [np.random.choice(col, maxData, replace=False) if len(col) > maxData else col for col in data]
 
     dataPlot = [go.Scatter(x=i + .5 + np.random.normal(size=len(data_to_plot[i])) * jitter,
                            y=data_to_plot[i],
                            mode='markers',
-                           marker=dict(size=2, color=cols[i]),
+                           marker=dict(size=markersize, color=cols[i]),
                            name=names[i])
                 for i in range(N)]
     traces += dataPlot
@@ -1150,6 +1167,11 @@ def vline(position, **params):
 def hline(position, **params):
     out = abs_line(position, orientation='h', **params)
     return out
+
+## misc utility functions
+def removeNaN(x):
+    # This function removes NaNs
+    return x[~np.isnan(x)]
 
 ###Dash wrappers
 def dashSubplot(plots,

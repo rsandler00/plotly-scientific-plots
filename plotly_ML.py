@@ -25,6 +25,7 @@ def plotMultiROC(y_true,        # list of true labels
                     y_scores,   # array of scores for each class of shape [n_samples, n_classes]
                     title = 'Multiclass ROC Plot',
                     labels = None, # list of labels for each class
+                    threshdot = None,
                     plot=True,  # 1/0. If 0, returns plotly json object, but doesnt plot
                 ):
     """
@@ -49,11 +50,17 @@ def plotMultiROC(y_true,        # list of true labels
         thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
 
     # make traces
-    
     traces = []
     [traces.append(go.Scatter(y=tpr[i], x=fpr[i], name=labels[i] + '. AUC= %.2f' % (roc_auc[i]), text=thresh_txt[i],
-                              line={'width': 1})) for i in range(n_classes)]
+                              legendgroup=str(i), line={'width': 1}))
+        for i in range(n_classes)]
     traces += [go.Scatter(y=[0, 1], x=[0, 1], name='Random classifier', line={'width': 1, 'dash': 'dot'})]
+
+    if threshdot is not None:
+        for i in range(n_classes):
+            c_indx = (np.abs(thresh[i]-threshdot)).argmin()
+            traces += [go.Scatter(x=[fpr[i][c_indx]]*2, y=[tpr[i][c_indx]]*2, mode='markers',
+                                  name='Threshold', legendgroup=str(i), showlegend=False)]
 
     # make layout
     layout = go.Layout(title=title,
@@ -76,6 +83,7 @@ def plotMultiPR(y_true,        # list of true labels
                     y_scores,   # array of scores for each class of shape [n_samples, n_classes]
                     title = 'Multiclass PR Plot',
                     labels = None, # list of labels for each class
+                    threshdot=None, # whether to plot a dot @ the threshold
                     plot=True,  # 1/0. If 0, returns plotly json object, but doesnt plot
                 ):
     """
@@ -104,7 +112,13 @@ def plotMultiPR(y_true,        # list of true labels
     # make traces
     traces = []
     [traces.append(go.Scatter(y=precision[i], x=recall[i], name=labels[i] + '. AUC= %.2f' % (pr_auc[i]), 
-                        text=thresh_txt[i], line={'width': 1})) for i in range(n_classes)]
+                        text=thresh_txt[i], legendgroup=str(i), line={'width': 1})) for i in range(n_classes)]
+
+    if threshdot is not None:
+        for i in range(n_classes):
+            c_indx = (np.abs(thresh[i]-threshdot)).argmin()
+            traces += [go.Scatter(x=[recall[i][c_indx]]*2, y=[precision[i][c_indx]]*2, mode='markers',
+                                  name='Threshold', legendgroup=str(i), showlegend=False)]
 
     # make layout
     layout = go.Layout(title=title,

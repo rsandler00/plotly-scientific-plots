@@ -143,7 +143,8 @@ def plotConfusionMatrix(y_true, # list of true labels
                         binarized = None, # if int/str then makes 1vsAll confusion matrix of that class
                         add_totals = True, # whether to add an extra row for class totals
                         plot = True, # 1/0. If 0, returns plotly json object, but doesnt plot
-                        fontsize=18,
+                        fontsize=18,    # axis font
+                        norm='rows',     # how to norm matrix colors. either 'all'/'rows'/'columns'
                 ):
     """
     Plots either a full or binarized confusion matrix
@@ -169,15 +170,34 @@ def plotConfusionMatrix(y_true, # list of true labels
     labels = ['['+x+']' if len(x)==1 else x for x in labels]    #needed for stupid plotly bug
 
     # adds an extra row for matrix totals
+    conf_matrix_tots =  copy.deepcopy(conf_matrix)
     if add_totals:
-        conf_matrix = np.vstack((conf_matrix, np.sum(conf_matrix, 0)))
-        conf_matrix = np.hstack((conf_matrix, np.atleast_2d(np.sum(conf_matrix, 1)).T ))
+        conf_matrix_tots = np.vstack((conf_matrix, np.sum(conf_matrix, 0)))
+        conf_matrix_tots = np.hstack((conf_matrix_tots, np.atleast_2d(np.sum(conf_matrix_tots, 1)).T ))
         labels = labels + ['TOTAL']
 
     # shorten labels
     labels_short = [x[:10] if type(x) == str else x for x in labels]
 
-    fig = ff.create_annotated_heatmap(conf_matrix, x=labels_short, y=labels_short, colorscale='Viridis')
+    # normalize matrix
+    color_mat = copy.deepcopy(conf_matrix_tots)
+    if norm != 'all':
+        axis = 0 if norm=='cols' else 1
+        norm_conf_matrix = np.nan_to_num(conf_matrix / np.sum(conf_matrix, axis=axis))
+    else:
+        norm_conf_matrix = conf_matrix
+    color_mat = color_mat.astype(float)
+    color_mat[:-1,:-1] = norm_conf_matrix
+
+    # Adjust Total rows
+    if add_totals:
+        totals_row_shading = .97    # range 0 to 1. 0=darkest, 1=lightest
+        tot_val = np.min(norm_conf_matrix) + (np.max(norm_conf_matrix) - np.min(norm_conf_matrix))*totals_row_shading
+        color_mat[-1, :] = tot_val
+        color_mat[:, -1] = tot_val
+
+    fig = ff.create_annotated_heatmap(color_mat, x=labels_short, y=labels_short, colorscale='Greys')
+
     fig.layout.yaxis.autorange = 'reversed'
     fig.layout.yaxis.title = 'True'
     fig.layout.xaxis.title = 'Predicted (Total accuracy = %.3f%%)' % perc(y_true==y_pred)
@@ -185,8 +205,22 @@ def plotConfusionMatrix(y_true, # list of true labels
     fig.layout.yaxis.titlefont.size = fontsize
     fig.layout.xaxis.tickfont.size = fontsize - 2
     fig.layout.yaxis.tickfont.size = fontsize - 2
+    fig['data'][0]['xgap'] = 1
+    fig['data'][0]['ygap'] = 1
     for i in range(len(fig.layout.annotations)):
         fig.layout.annotations[i].font.size = fontsize-3
+        fig.layout.annotations[i].text = str(conf_matrix_tots.flatten()[i])
+
+    ### Adjust totals fontstyle
+    if add_totals:
+        # get totals indxs
+        n = n_classes if binarized is None else 2
+        last_column_indxs = [(n + 1) * x - 1 for x in range(1, n + 1)]
+        last_row_indxs = list(range((n + 1) * (n), (n + 1) ** 2))
+        totals_annot_indxs = last_row_indxs + last_column_indxs
+        # adjust font
+        for i in totals_annot_indxs:
+            fig['layout']['annotations'][i]['font'] = dict(size=fontsize, color='#000099')
 
     if plot:
         plotfunc = pyo.iplot if in_notebook() else pyo.plot

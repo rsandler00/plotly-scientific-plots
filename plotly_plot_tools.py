@@ -327,6 +327,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
              addCorr=True,      # whether to add correlation statistics into plot (R2, spearmanR2, Pvals, & y=mx+b)
              addCorrLine=True,     # whether to plot correlation line
              addXYline=False,      # whether to plot y=x line
+             text=None,         # whether to add additional text to each point
              plot=True,         # if false, just returns plotly json object
              title='Correlation', # title of plot
              xlbl='',           #
@@ -401,8 +402,10 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
             cols=['blue']
         line_col = cols
         showscale = False
-        scattertext = ''
-
+        if text is None:
+            scattertext = ''
+        else:
+            scattertext = text
 
     # scale markersize
     Lxp = np.min([max(Lx),maxdata])
@@ -466,11 +469,14 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
                                mode='lines', line={'color': 'black'})]
         traces += xyline
 
+    showleg = False if N==1 else True
+
     layout = go.Layout(title=title,
                        annotations=annots,
                        xaxis={'title': xlbl},
                        yaxis={'title': ylbl},
                        hovermode='closest',
+                       showlegend = showleg,
                        )
     fig = go.Figure(data=traces, layout=layout)
 
@@ -480,15 +486,84 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
     else:
         return fig
 
+def scatterHistoPlot(x,
+                     y,
+                     title = '2D Density Plot',
+                     xlbl = '',
+                     ylbl = '',
+                     plot = True
+                    ):
+    """
+    ...
+    """
 
-def basicBarPlot(data,
-                 names=None,
+    scatter_plot = go.Scatter(
+        x=x, y=y, mode='markers', name='points',
+        marker=dict(color='rgb(102,0,0)', size=2, opacity=0.4)
+    )
+    contour_plot = go.Histogram2dcontour(
+        x=x, y=y, name='density', ncontours=20,
+        colorscale='Hot', reversescale=True, showscale=False
+    )
+    x_density = go.Histogram(
+        x=x, name='x density',
+        marker=dict(color='rgb(102,0,0)'),
+        yaxis='y2'
+    )
+    y_density = go.Histogram(
+        y=y, name='y density', marker=dict(color='rgb(102,0,0)'),
+        xaxis='x2'
+    )
+    data = [scatter_plot, contour_plot, x_density, y_density]
+
+    scatterplot_ratio = .85    # ratio of figure to be taken by scatterplot vs histograms
+    layout = go.Layout(
+        title=title,
+        showlegend=False,
+        autosize=False,
+        width=600,
+        height=550,
+        xaxis=dict(
+            title = xlbl,
+            domain=[0, scatterplot_ratio],
+            showgrid=False,
+            zeroline=False
+        ),
+        yaxis=dict(
+            title=ylbl,
+            domain=[0, scatterplot_ratio],
+            showgrid=False,
+            zeroline=False
+        ),
+        margin=dict(
+            t=50
+        ),
+        hovermode='closest',
+        bargap=0,
+        xaxis2=dict(
+            domain=[scatterplot_ratio, 1],
+            showgrid=False,
+            zeroline=False
+        ),
+        yaxis2=dict(
+            domain=[scatterplot_ratio, 1],
+            showgrid=False,
+            zeroline=False
+        )
+    )
+
+    fig = go.Figure(data=data, layout=layout)
+
+    return plotOut(fig, plot)
+
+def basicBarPlot(data,          # list of #'s
+                 names=None,    # xtick labels. Can be numeric or str
                  title='',
                  ylbl='',
                  xlbl='',
                  text=None,
                  orient=None,
-                 line=None,
+                 line=None,     # add line perpendicular to bars (eg to show mean)
                  plot=True):
     """
     Makes a basic bar plot where data is [n,1] list of values. No averaging/etc... For that see barPlot or propBarPlot
@@ -853,7 +928,17 @@ def plotDF( df,             # pandas DF
 
 
 
-def multiMean(data, x=None, std=True, names=None, plot=True, title='', ylbl='', xlbl='', norm=None, indiv=False, indivnames=None):
+def multiMean(data,
+              x=None,
+              std=True,
+              names=None,
+              plot=True,
+              title='',
+              ylbl='',
+              xlbl='',
+              norm=None,
+              indiv=False,
+              indivnames=None):
     """
     Plots means of multiple data matrices
     :param data: list of data matrices
@@ -1259,6 +1344,17 @@ def dashSubplot_from_figs(figs):
     layout = dashSubplot(d_plot)
     return layout
 
+### Plotly misc
+
+def plotOut(fig, plot):
+    """ Standard code snippet to decide whether to return plotly fig object or plot """
+    if plot:
+        plotfunc = pyo.iplot if in_notebook() else pyo.plot
+        plotfunc(fig)
+        return None
+    else:
+        return fig
+
 def in_notebook():
     """
     Returns ``True`` if the module is running in IPython kernel,
@@ -1269,65 +1365,3 @@ def in_notebook():
     except:
         return False
 
-
-#### ADDED LATER to emrge
-
-def contourHist(x, y, xlbl='', ylbl='', plot=False):
-    scatterplot = go.Scatter(
-        x=x, y=y, mode='markers', name='points',
-        marker=dict(color='rgb(102,0,0)', size=2, opacity=0.4)
-    )
-    heatmap = go.Histogram2dcontour(
-        x=x, y=y, name='density', ncontours=20,
-        colorscale='Hot', reversescale=True, showscale=False
-    )
-    xhist = go.Histogram(
-        x=x, name='x density',
-        marker=dict(color='rgb(102,0,0)'),
-        yaxis='y2'
-    )
-    yhist = go.Histogram(
-        y=y, name='y density', marker=dict(color='rgb(102,0,0)'),
-        xaxis='x2'
-    )
-    data = [scatterplot, heatmap, xhist, yhist]
-
-    layout = go.Layout(
-        showlegend=False,
-        autosize=False,
-        width=600,
-        height=550,
-        xaxis=dict(
-            title = xlbl,
-            showgrid=False,
-            zeroline=False
-        ),
-        yaxis=dict(
-            title=ylbl,
-            domain=[0, 0.85],
-            showgrid=False,
-            zeroline=False
-        ),
-        margin=dict(
-            t=50
-        ),
-        hovermode='closest',
-        bargap=0,
-        xaxis2=dict(
-            domain=[0.85, 1],
-            showgrid=False,
-            zeroline=False
-        ),
-        yaxis2=dict(
-            domain=[0.85, 1],
-            showgrid=False,
-            zeroline=False
-        )
-    )
-
-    fig = go.Figure(data=data, layout=layout)
-
-    if plot:
-        pyo.iplot(fig)
-    else:
-        return fig

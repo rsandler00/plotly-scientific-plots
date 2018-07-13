@@ -323,7 +323,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
              y,                 # 1D data vector or list of 1D dsata vectors
              z=None,            # optional colors for the lines
              names=None,        # names of x, y (ex:['A', 'B']
-             maxdata=2010,      # max # of points to plot above histogram (if too high, it will be slow)
+             maxdata=2000,      # max # of points to plot above histogram (if too high, it will be slow)
              addCorr=True,      # whether to add correlation statistics into plot (R2, spearmanR2, Pvals, & y=mx+b)
              addCorrLine=True,     # whether to plot correlation line
              addXYline=False,      # whether to plot y=x line
@@ -485,6 +485,7 @@ def basicBarPlot(data,
                  names=None,
                  title='',
                  ylbl='',
+                 xlbl='',
                  text=None,
                  orient=None,
                  line=None,
@@ -506,6 +507,7 @@ def basicBarPlot(data,
     layout = go.Layout(
             title=title,
             yaxis={'title': ylbl},
+            xaxis={'title': xlbl},
             hovermode='closest',
     )
     if line:
@@ -1266,3 +1268,66 @@ def in_notebook():
         return get_ipython().__class__.__name__ == 'ZMQInteractiveShell'
     except:
         return False
+
+
+#### ADDED LATER to emrge
+
+def contourHist(x, y, xlbl='', ylbl='', plot=False):
+    scatterplot = go.Scatter(
+        x=x, y=y, mode='markers', name='points',
+        marker=dict(color='rgb(102,0,0)', size=2, opacity=0.4)
+    )
+    heatmap = go.Histogram2dcontour(
+        x=x, y=y, name='density', ncontours=20,
+        colorscale='Hot', reversescale=True, showscale=False
+    )
+    xhist = go.Histogram(
+        x=x, name='x density',
+        marker=dict(color='rgb(102,0,0)'),
+        yaxis='y2'
+    )
+    yhist = go.Histogram(
+        y=y, name='y density', marker=dict(color='rgb(102,0,0)'),
+        xaxis='x2'
+    )
+    data = [scatterplot, heatmap, xhist, yhist]
+
+    layout = go.Layout(
+        showlegend=False,
+        autosize=False,
+        width=600,
+        height=550,
+        xaxis=dict(
+            title = xlbl,
+            showgrid=False,
+            zeroline=False
+        ),
+        yaxis=dict(
+            title=ylbl,
+            domain=[0, 0.85],
+            showgrid=False,
+            zeroline=False
+        ),
+        margin=dict(
+            t=50
+        ),
+        hovermode='closest',
+        bargap=0,
+        xaxis2=dict(
+            domain=[0.85, 1],
+            showgrid=False,
+            zeroline=False
+        ),
+        yaxis2=dict(
+            domain=[0.85, 1],
+            showgrid=False,
+            zeroline=False
+        )
+    )
+
+    fig = go.Figure(data=data, layout=layout)
+
+    if plot:
+        pyo.iplot(fig)
+    else:
+        return fig

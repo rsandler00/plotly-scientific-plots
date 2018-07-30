@@ -1281,7 +1281,15 @@ def dashSubplot(plots,
                 indiv_widths=None,  # can specify list of individual column widths
                 ):
 
-    Ncol = len(plots)   # number of columns
+    # remove empty elements of list
+    plots = [[plt for plt in col if plt != []] for col in plots]    # remove empty plots from each column
+    for i in range(len(plots)-1, -1, -1):   # remove empty columns
+        if plots[i] == []:
+            plots.pop(i)
+            if indiv_widths is not None:
+                indiv_widths.pop(i)
+
+    Ncol = len(plots)  # number of columns
 
     if indiv_widths is None:
         col_width = [min(max_width, max(int(100/Ncol-2), min_width) )] * Ncol

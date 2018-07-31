@@ -124,8 +124,8 @@ def plot2Hists(x1,              # data of 1st histogram
     Does the binning w/ numpy to make it go way faster than plotly's inherent histogram function
 
     Usage:
- 
 
+ 
     """
 
     x1=np.array(x1)

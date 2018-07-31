@@ -323,7 +323,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
              y,                 # 1D data vector or list of 1D dsata vectors
              z=None,            # optional colors for the lines
              names=None,        # names of x, y (ex:['A', 'B']
-             maxdata=2010,      # max # of points to plot above histogram (if too high, it will be slow)
+             maxdata=2000,      # max # of points to plot above histogram (if too high, it will be slow)
              addCorr=True,      # whether to add correlation statistics into plot (R2, spearmanR2, Pvals, & y=mx+b)
              addCorrLine=True,     # whether to plot correlation line
              addXYline=False,      # whether to plot y=x line
@@ -560,6 +560,7 @@ def basicBarPlot(data,          # list of #'s
                  names=None,    # xtick labels. Can be numeric or str
                  title='',
                  ylbl='',
+                 xlbl='',
                  text=None,
                  orient=None,
                  line=None,     # add line perpendicular to bars (eg to show mean)
@@ -581,6 +582,7 @@ def basicBarPlot(data,          # list of #'s
     layout = go.Layout(
             title=title,
             yaxis={'title': ylbl},
+            xaxis={'title': xlbl},
             hovermode='closest',
     )
     if line:
@@ -1370,3 +1372,4 @@ def in_notebook():
         return get_ipython().__class__.__name__ == 'ZMQInteractiveShell'
     except:
         return False
+

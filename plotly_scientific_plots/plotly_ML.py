@@ -15,8 +15,9 @@ import plotly.graph_objs as go
 import plotly.figure_factory as ff
 import plotly as py
 import matplotlib.pyplot as plt
-from plotly_plot_tools import in_notebook
 import colorlover as cl
+# import internal functions
+from plotly_scientific_plots.plotly_misc import in_notebook, plotOut
 
 perc = lambda x: np.sum(x)/len(x)*100
 

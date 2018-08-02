@@ -17,6 +17,9 @@ import dash_core_components as dcc
 import dash_html_components as html
 import cufflinks as cf
 
+# internal files
+from plotly_scientific_plots.plotly_misc import in_notebook, plotOut
+
 # personal functions
 #module_path = os.path.abspath(os.path.join('..'))
 #sys.path.append(module_path + '\\Utils')
@@ -1351,25 +1354,4 @@ def dashSubplot_from_figs(figs):
 
     layout = dashSubplot(d_plot)
     return layout
-
-### Plotly misc
-
-def plotOut(fig, plot):
-    """ Standard code snippet to decide whether to return plotly fig object or plot """
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-        return None
-    else:
-        return fig
-
-def in_notebook():
-    """
-    Returns ``True`` if the module is running in IPython kernel,
-    ``False`` if in IPython shell or other Python shell.
-    """
-    try:
-        return get_ipython().__class__.__name__ == 'ZMQInteractiveShell'
-    except:
-        return False
 

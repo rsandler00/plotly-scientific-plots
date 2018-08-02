@@ -24,6 +24,9 @@ brown/data/*
 # Data
 */data/*
 
+# SVN repo
+.svn/
+
 # Distribution / packaging
 .Python
 env/

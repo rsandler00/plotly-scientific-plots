@@ -22,7 +22,9 @@ Required packages:
 
 To install, simply use `pip install plotly-scientific-plots`
 
-## Examples & Usage
+To import use `import plotly_scientific_plots as psp`
+
+## Examples and Usage
 
 Plots 2 overlapping normalized histograms, including overhead boxplots and data points.
 
@@ -31,10 +33,11 @@ Tests are:
 * KS: Kolmogorov-Smirnov statistic on 2 samples.
 * MW: Mann-Whitney rank test on two samples.
 * T: T-test for the means of *two independent* samples of scores.
+
 All tests are done via `scipy`
 
 ```python
-plot2Hists(data_source_1, data_source_2, names=['Data 1','Data 2'],
+psp.plot2Hists(data_source_1, data_source_2, names=['Data 1','Data 2'],
            normHist=True, title='Comparison of 2 Data Sources',
            KS=True, MW=True, T=True))
 ```

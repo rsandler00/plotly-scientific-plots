@@ -29,8 +29,8 @@ To import use `import plotly_scientific_plots as psp`
 Plotly's key strength is its ability to do interactive visualizations. 
 For scientists, this allows novel ways of exploring data with mouse clicks and hovers.
 
-To see a full lsit of plotly-scientific-tools examples and their descriptions, go through the `examples.ipynb` 
-in nbviewer by clicking [here][1]
+**To see a full list of plotly-scientific-tools examples and their descriptions, go through the `examples.ipynb` 
+in nbviewer by clicking [here][1]**
 
 Below, are a limited set of examples to give the feel of how `psp` works:
 

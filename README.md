@@ -26,6 +26,12 @@ To import use `import plotly_scientific_plots as psp`
 
 ## Examples and Usage
 
+Plotly's key strength is its ability to do interactive visualizations. 
+For scientists, this allows novel ways of exploring data with mouse clicks and hovers.
+
+To see a full lsit of plotly-scientific-tools examples, go through the `examples.ipynb` 
+in nbviewer by clicking [here][1]
+
 Plots 2 overlapping normalized histograms, including overhead boxplots and data points.
 
 Furthermore performs statistical testing to differentiate the two population samples.
@@ -42,3 +48,6 @@ psp.plot2Hists(data_source_1, data_source_2, names=['Data 1','Data 2'],
            KS=True, MW=True, T=True))
 ```
 ![plot2Hist_1](images/plot2Hist_1.png?raw=true "plot2Hist_1")
+
+[1]: https://nbviewer.jupyter.org/github/rsandler00/plotly-scientific-plots/blob/master/examples.ipynb
+ 

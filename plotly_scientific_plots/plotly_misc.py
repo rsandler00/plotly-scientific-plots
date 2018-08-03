@@ -1,5 +1,7 @@
 ### Plotly misc
 
+import plotly.offline as pyo
+
 def plotOut(fig, plot):
     """ Standard code snippet to decide whether to return plotly fig object or plot """
     if plot:

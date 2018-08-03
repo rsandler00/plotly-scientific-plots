@@ -259,7 +259,7 @@ def plotPolar(data,         # N-d list/numpy array
     if N>1:
         lg = names
         showleg = True
-        cols = cl.scales[str(N)]['qual']['Set1']
+        cols = cl.scales[str(N+1)]['qual']['Set1']
     else:
         lg=[None]
         showleg = False
@@ -287,9 +287,16 @@ def plotPolar(data,         # N-d list/numpy array
     ## Histogram
     if hist:
         hy, hx = zip(*[np.histogram(col, bins=numbins, density=normHist, range=[-np.pi, np.pi]) for col in data])
+        hx = np.array(hx)
         hy = np.array(hy)
+
+        # add first element to last to complete the circle
+        hx = np.hstack((hx, hx[:,0:1]))
+        hy = np.hstack((hy, hy[:,0:1]))
+
+        # t=theta, r=radius
         traces += [go.Scatter(t=hx[n]/np.pi*180, r=hy[n], name=names[n], mode='lines',
-                              line={'width': 2, 'color':cols[n]}, hovertext=names[n], hoverinfo='name+r+t')
+                              line={'width': 3, 'color':cols[n]}, hovertext=names[n], hoverinfo='name+r+t')
                     for n in range(N)]
         top = np.max(hy.flatten()) * 1.2
     else:
@@ -305,7 +312,7 @@ def plotPolar(data,         # N-d list/numpy array
         else:
             dataToPlot, Np = data[0], Lx[0,0]
         traces += [go.Scatter(r = top+np.random.normal(size=Np)*top*jitter, t = data[0]/np.pi*180,
-                        mode='markers', name=names[0] + ' scatter', marker={'size': markersize, 'color':cols[n]})]
+                        mode='markers', name=names[0] + ' scatter', marker={'size': markersize, 'color':cols[0]})]
 
     ## make fig
     layout = go.Layout(
@@ -497,7 +504,7 @@ def scatterHistoPlot(x,
                      plot = True
                     ):
     """
-    ...
+    This creates a scatter plot above a contour plots for the data
     """
 
     scatter_plot = go.Scatter(

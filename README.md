@@ -8,6 +8,7 @@ Its advantages over naive plotly are:
 * Integrated scatistical testing above plots
 * Expanded plot types (such as confusion amtrices, ROC plots)
 * more 'Matlab-like' interface for those making the Matlab --> python transition
+* Easily make full multi-figure dashboards in a single line using Dash
 
 ## Requirements and installation
 
@@ -27,12 +28,12 @@ To import use `import plotly_scientific_plots as psp`
 ## Examples and Usage
 
 Plotly's key strength is its ability to do interactive visualizations. 
-For scientists, this allows novel ways of exploring data with mouse clicks and hovers.
-
-**To see a full list of plotly-scientific-tools examples and their descriptions, go through the `examples.ipynb` 
+For scientists, this allows novel ways of exploring data with mouse clicks and hovers. **To see a full list of plotly-scientific-tools examples and their descriptions, go through the `examples.ipynb` 
 in nbviewer by clicking [here][1]**
 
 Below, are a limited set of examples to give the feel of how `psp` works:
+
+#### Sample plots
 
 ##### Two dataset histograms:
 
@@ -71,5 +72,34 @@ psp.plotPolar([polar1], numbins=20, title='Polar Distribution')
 ```
 ![plot2Hist_1](images/polar1.png?raw=true "polar1")
 
+
+#### Dashboards
+
+To make multi-figure dashboards simply collect all desired figures in a nested list. Each outer list will correspond 
+to a column in the dashboard, and each figure within each outer list will be a row in the column. The pass that list 
+to `psp.startDashboard`. A flask-based web-server will start showing the figures in the browser at the provided port 
+(default port=8050). For example:
+
+```python
+plot1 = psp.plotHist(..., plot=False)
+plot2 = psp.plot2Hists(..., plot=False)
+plot3 = psp.corrPlot(..., plot=False)
+plot4 = psp.plotPolar(..., plot=False)
+dash_plots = [
+            [plot1, plot2],
+            [plot3, plot4]
+        ]
+psp.startDashboard(dash_plots, port=8052)
+```
+
+An example dashboard appears below:
+
+*Add example figure !!!*
+
+
+
+
 [1]: https://nbviewer.jupyter.org/github/rsandler00/plotly-scientific-plots/blob/master/examples.ipynb
+ 
+
  

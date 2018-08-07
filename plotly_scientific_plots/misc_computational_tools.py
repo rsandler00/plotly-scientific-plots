@@ -51,10 +51,6 @@ def norm_mat(X,
         Y = X
     return Y
 
-
-def calcPAC(lo, hi, ):
-    pacpy.pac
-
 def getSTA(trigger, signal, rng,
            lags=1,
            norm='zscore', #how each STA trial is normalized in all_sta
@@ -124,82 +120,6 @@ def getSTA(trigger, signal, rng,
             plotfunc(fig)
 
     return sta, bins, all_sta
-
-
-def getStimOnOffTimes(sig, Fs, filt_range=(100,130), perc_thresh=50, trg=None, plot=False, plt_rng=[5000,25000]):
-    """
-    Gets on/off timestamps of stimulation
-    :param sig: stimCpy signal from pbrown unilateral data
-    :param Fs: sampling freq
-    :param filt_range: where to filt for stimulation, which i ussually 130Hz
-    :param perc_thresh: threshold of where to dvidie on/off stim
-    :param trg: provided trg sinal from ppbrown unilateral data
-    :param plot: 1/0 whether to make plotly plot
-    :param plt_rng: range to plot, in bins
-    :return:
-    """
-    sig = np.array(sig)
-    b, a = sp.signal.butter(4, [filt_range[0] / Fs * 2, filt_range[1] / Fs * 2], 'bandpass')
-    filt = sp.signal.filtfilt(b, a, sig, padlen=150)
-    hilb = np.abs(sp.signal.hilbert(filt))
-
-    if trg is None:     # actual stim threshold signal not provided
-        thresh = np.percentile(hilb, perc_thresh)
-        onOffSig = (np.sign(hilb - thresh))
-    else:  # stim threshold signal provided
-        trg = np.array(trg)
-        thresh = np.mean(trg)
-        onOffSig = (np.sign(trg - thresh))
-    onOffSig[onOffSig==0]=1 #this needed to avoid bug where sig == thresh
-    diff = np.diff(onOffSig)
-    onTimes = np.where(diff==2)[0]
-    offTimes = np.where(diff==-2)[0]
-    # insure starts w/ on & ends w/ off
-    if offTimes[0] < onTimes[0]: offTimes=offTimes[1:]
-    if offTimes[-1] < onTimes[-1]: onTimes=onTimes[:-1]
-    if len(onTimes) != len(offTimes):
-        raise  ValueError("onTimes doesnt equal offTimes !!!!")
-    onOffTimes = np.array([onTimes, offTimes]).T
-
-    if plot is True:
-        rng = plt_rng
-        scale = max(hilb)
-        opc=.7
-        traces = []
-        traces += [go.Scatter(y=sig[rng[0]:rng[1]], name='Sig', opacity=opc)]
-        traces += [go.Scatter(y=filt[rng[0]:rng[1]], name='filt', opacity=opc)]
-        traces += [go.Scatter(y=hilb[rng[0]:rng[1]], name='hilb', opacity=opc)]
-        if trg is not None:
-            traces += [go.Scatter(y=trg[rng[0]:rng[1]], name='trg', opacity=opc)]
-        traces += [go.Scatter(x=[0,rng[1]-rng[0]], y=[thresh]*2, name='threshold', opacity=opc)]
-        traces += [go.Scatter(y=onOffSig[rng[0]:rng[1]] * scale, name='onOffSig', opacity=opc)]
-        traces += [go.Scatter(y=diff[rng[0]:rng[1]] * scale/2*1.2, name='diff', opacity=opc)]
-        #traces += [go.Scatter(y=np.diff(hilb[rng[0]-1:rng[1]])*100, name='d`hilb', opacity=opc)]
-        np.hstack(([0], np.diff(hilb)))
-        in_rng = onOffTimes[(onOffTimes[:,0]>rng[0]) & (onOffTimes[:,0]<rng[1]),:]
-        shapes = [{
-            'type': 'rect',
-            # x-reference is assigned to the x-values
-            'xref': 'x',
-            # y-reference is assigned to the plot paper [0,1]
-            'yref': 'paper',
-            'x0': in_rng[i,0]-rng[0],
-            'y0': 0,
-            'x1': in_rng[i,1]-rng[0],
-            'y1': 1,
-            'fillcolor': '#d3d3d3',
-            'opacity': 0.4,
-            'line': {
-                'width': 0,
-            }
-        } for i in range(in_rng.shape[0])]
-        #shapes=[]
-        if in_notebook():
-            pyo.iplot({'data': traces, 'layout': {'shapes': shapes}})
-        else:
-            pyo.plot({'data': traces, 'layout': {'shapes': shapes}}, filename='getStimOnOffTimes.html')
-
-    return (onOffTimes, hilb, onOffSig)
 
 def conditionalHist(x,y, Nbins=50, std=True,
                     plot=False, xlbl='X', ylbl='Y', stats=None):
@@ -301,111 +221,6 @@ def conditionalHist(x,y, Nbins=50, std=True,
     else:
         return condHist, bins
 
-def getBursts(x, method='feingold', minmax=None, plot=False, plt_rng=[0,10000], threshpar=None, xtrasig=None):
-    """
-    Finds burst regions in the beta power signal
-    :param x: beta power signal (ie hilbert envelope.
-    :param method: sor far: 'feingold'/?
-    :param plot: 1/0. If 1 makes a plotly plot to visualize algo...
-    :return: b - binary signal where 1 is bursting regions
-    """
-
-    x = np.array(x)
-    Lx = len(x)
-
-    if method == 'basic':
-        #basic threshold method. anything above is a beta segment
-        if threshpar is None: threshpar = 0
-        thresh = threshpar
-        b_sig = x > thresh
-    if method == 'tinkhauser':
-        # used in Tinkhauser et al., 2017. He used simple 75th percentile of signal threshold
-        if threshpar is None: threshpar = 75
-        thresh = np.percentile(x, threshpar)
-        b_sig = x > thresh
-    if method == 'feingold':
-        # burst detection method of Feingold et al., 2015 PNAS
-        # it has 2 thresholds, one low, one high. It considers a beta segment any region which continuously crosses the
-        # low threshold and has at least 1 point that crosses the high threshold.
-        if threshpar is None: threshpar = [1.7, 1.3]    #high / low threshold, in terms of median. Feingold uses [3, 1.5]
-        med = np.median(x)
-        thresh = threshpar[0] * med
-        lowthresh = threshpar[1] * med
-        multithresh_sig = np.zeros(x.shape)
-        multithresh_sig[x > lowthresh] = 1
-        multithresh_sig[x > thresh] = 3
-        diff = np.diff(multithresh_sig)
-        high_to_mid = np.where(diff==-2)[0]
-        mid_to_low = np.where(diff == -1)[0]
-        high_to_low = mid_to_low[np.unique(np.searchsorted(mid_to_low, high_to_mid))[:-1]]
-        high_to_low_direct = np.where(diff == -3)[0]
-        high_to_low = np.sort(np.hstack((high_to_low, high_to_low_direct)))
-
-        mid_to_high = np.where(diff == 2)[0]
-        low_to_mid = np.where(diff == 1)[0]
-        low_to_high = low_to_mid[np.unique(np.searchsorted(low_to_mid, mid_to_high))[:-1] - 1]
-        low_to_high_direct = np.where(diff == 3)[0]
-        low_to_high = np.sort(np.hstack((low_to_high, low_to_high_direct)))
-
-        if len(low_to_high) < len(high_to_low):
-            high_to_low = high_to_low[np.searchsorted(high_to_low, low_to_high)]
-        if len(high_to_low) < len(low_to_high):  #debug
-            low_to_high = low_to_high[np.searchsorted(low_to_high, high_to_low)-1]
-        b_sig = np.zeros(x.shape)
-        for i in range(len(low_to_high)):
-            b_sig[low_to_high[i]:high_to_low[i]]=1
-
-    # get start/stop of each burst
-    diff = np.hstack((0, np.diff(b_sig.astype(int))))
-    start = np.where(diff == 1)[0]
-    stop = np.where(diff == -1)[0]
-    if start[-1]>stop[-1]: start=start[:-1]
-    if stop[0] < start[0]: stop = stop[1:]
-    b_rng = np.array([start, stop])
-    if minmax is not None:
-        good  = [(np.diff(b_rng.T) > minmax[0]) & (np.diff(b_rng.T) < minmax[1])][0].flatten()
-        b_rng = b_rng[:, good]
-        b_sig = np.zeros(x.shape) #resete & redo signal
-        for i in range(b_rng.shape[1]):
-            b_sig[b_rng[0,i]:b_rng[1,i]] = 1
-
-    if plot:
-        opc = .7
-        traces = []
-        traces += [go.Scatter(y=x[plt_rng[0]:plt_rng[1]], name='Beta Power', opacity=opc)]
-        if xtrasig is not None:
-            traces += [go.Scatter(y=np.array(xtrasig)[plt_rng[0]:plt_rng[1]], name='XtraSig', opacity=opc)]
-        traces += [go.Scatter(x=[0, plt_rng[1]-plt_rng[0]], y=[thresh] * 2, name='Threshold', opacity=opc)]
-        if method == 'feingold':
-            traces += [go.Scatter(x=[0, plt_rng[1]-plt_rng[0]], y=[lowthresh] * 2, name='Low Threshold', opacity=opc)]
-
-        # grey areas
-        in_rng = b_rng[:, (b_rng[0, :] > plt_rng[0]) & (b_rng[0, :] < plt_rng[1])]
-        shapes = [{
-            'type': 'rect',
-            # x-reference is assigned to the x-values
-            'xref': 'x',
-            # y-reference is assigned to the plot paper [0,1]
-            'yref': 'paper',
-            'x0': in_rng[0, i] - plt_rng[0],
-            'y0': 0,
-            'x1': in_rng[1, i] - plt_rng[0],
-            'y1': 1,
-            'fillcolor': '#d3d3d3',
-            'opacity': 0.4,
-            'line': {
-                'width': 0,
-            }
-        } for i in range(in_rng.shape[1])]
-        # shapes=[]
-
-        if in_notebook():
-            pyo.iplot({'data': traces, 'layout': {'shapes': shapes}})
-        else:
-            pyo.plot({'data': traces, 'layout': {'shapes': shapes}}, filename='getStimOnOffTimes.html')
-
-    return b_sig, b_rng
-
 def autocorrelation(x, maxlag):
     """
     Autocorrelation with a maximum number of lags.
@@ -494,61 +309,6 @@ def crosscorrelation(x, y, lag=None, verbose=True):
     result = numpy.asarray(result)
 
     return result
-
-def getNarrowBandSig(x, Fs, bnd, order=5, domag=True, dophase=True):
-    x = np.array(x)
-    N = len(x)
-    b, a = sp.signal.butter(order, np.array(bnd)/Fs*2, btype='bandpass')
-    xfilt = sp.signal.filtfilt(b, a, x)
-
-    mag, phase = [], []
-    if domag or dophase:
-        hilb = fastHilbert(xfilt)
-        if domag:
-            mag = np.abs(hilb)
-        if dophase:
-            phase = np.unwrap(np.angle(hilb))
-
-    return xfilt, mag, phase
-
-def getNarrowPac(lo_sig,    # 1d np array sig for low freq. phase
-                 lo_rng,    # low freq filter range
-                 hi_rng,    # hi freq filter range
-                 Fs,        # sampling freq (Hz)
-                 hi_sig=None, # sig for high freq power. If none, same as lo_sig
-                 MI=True,   # 1/0 whether to also calc MI & print it in plot title
-                 norm = 'zscore'):  # norm for STA plot.
-    """
-    This function plots phase-amplitude coupling (PAC) STA as in Canolty et al., 2006 Fig. 1B.
-    """
-
-    if hi_sig is None: hi_sig = lo_sig
-
-    # get lo phase signal
-    b, a = sp.signal.butter(4, [lo_rng[0] / Fs * 2, lo_rng[1] / Fs * 2], 'bandpass')
-    lo_filt = sp.signal.filtfilt(b, a, lo_sig, padlen=150)
-    lo_phase = np.angle(fastHilbert(lo_filt))
-
-    # get hi amp signal
-    b, a = sp.signal.butter(4, [hi_rng[0] / Fs * 2, hi_rng[1] / Fs * 2], 'bandpass')
-    hi_filt = sp.signal.filtfilt(b, a, hi_sig, padlen=150)
-    hi_amp = np.angle(fastHilbert(hi_filt))
-
-    # get lo phase triggers
-    trgs = np.where(np.diff(lo_phase)<-6)[0]
-
-    # Modulation Index (MI)
-    if MI:
-        z_array = hi_amp * np.exp(1j * lo_phase)
-        MI = np.abs(np.mean(z_array))
-        title = 'PAC STA. MI=%.2e' % (MI)
-    else:
-        MI= np.nan
-        title = 'PAC STA'
-
-    PACsta = getSTA(trgs, hi_amp, rng=[150, 160], Fs=Fs, lags=4, plot=1, getFig=1, title=title, norm=norm)
-
-    return PACsta, MI, lo_phase, hi_amp
 
 
 ### Generic python helper functions. Not specifically neuroscience related
@@ -665,19 +425,9 @@ def _check_arg(x, xname):
         raise ValueError('%s must be one-dimensional.' % xname)
     return x
 
-perc = lambda x: np.sum(x)/len(x)*100
+def perc(x):
+    return np.sum(x)/len(x)*100
 
-rngmap = lambda sig, rngs, func: [func(sig[rngs[0,i]:rngs[1,i]]) for i in range(rngs.shape[1])]
-
-def getMasterDir():
-    masterdirfile = os.path.join(os.path.dirname(os.getcwd()), 'masterdir.txt')
-    if os.path.isfile(masterdirfile):
-        file = open(masterdirfile, 'r')
-        masterdir = file.read()
-    else:
-        # this is the default master directory if no file found. change as needed
-        masterdir =  'F:\\Data\\BrownData\\Unilateral Study\\'
-    return masterdir
 
 def fastHilbert(signal):
     """

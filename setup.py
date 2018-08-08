@@ -9,7 +9,7 @@ setup(
     packages=['plotly_scientific_plots'],
     install_requires=['numpy', 'scipy', 'plotly', 'colorlover',
                       'dash', 'dash_core_components', 'dash_html_components'],
-    version='0.1.0.3',
+    version='0.1.0.4',
     license='MIT',
     description='Python package extending plotly for scientific computing and visualization',
     long_description=open('README.md').read(),

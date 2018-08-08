@@ -1,27 +1,17 @@
 import numpy as np
 import scipy as sp
 import scipy.stats
-import sys
-import os
 import copy
-from numpy.lib.stride_tricks import as_strided
 
 #plotting
 import plotly.offline as pyo
 import plotly.graph_objs as go
 import plotly as py
-import matplotlib.pyplot as plt
 import colorlover as cl
-import cufflinks as cf
 
 # internal files
 from plotly_scientific_plots.plotly_misc import in_notebook, plotOut
 from plotly_scientific_plots.misc_computational_tools import removeOutliers, removeNaN
-
-# personal functions
-#module_path = os.path.abspath(os.path.join('..'))
-#sys.path.append(module_path + '\\Utils')
-#from misc import *
 
 ###Scientific Plots
 def plotHist(data,              # 1D list/np vector of data

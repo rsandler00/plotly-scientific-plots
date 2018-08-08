@@ -1,7 +1,4 @@
 import numpy as np
-import scipy as sp
-import sys
-import os
 import copy
 # import sklearn
 import sklearn as sk
@@ -10,14 +7,10 @@ import sklearn.model_selection
 import sklearn.ensemble
 import sklearn.metrics
 # import plotly
-import plotly.offline as pyo
 import plotly.graph_objs as go
 import plotly.figure_factory as ff
-import plotly as py
-import matplotlib.pyplot as plt
-import colorlover as cl
 # import internal functions
-from plotly_scientific_plots.plotly_misc import in_notebook, plotOut
+from plotly_scientific_plots.plotly_misc import plotOut
 
 perc = lambda x: np.sum(x)/len(x)*100
 

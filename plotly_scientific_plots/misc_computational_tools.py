@@ -2,17 +2,10 @@ import numpy as np
 import scipy as sp
 from numpy.lib.stride_tricks import as_strided
 from itertools import product
-import sys
-import os
-#import pacpy
-from IPython import get_ipython
-
 #plotting
 import plotly.offline as pyo
 import plotly.graph_objs as go
-import plotly as py
-import matplotlib.pyplot as plt
-import pdb
+
 
 def norm_mat(X,
              X2=None,

@@ -310,6 +310,45 @@ def crosscorrelation(x, y, lag=None, verbose=True):
 
     return result
 
+def removeOutliers(data, stdbnd=6, percclip=[5,95], rmv=True):
+    N = len(data)
+    mean = np.mean(data)
+    med = np.median(data)
+    std = np.std(data)
+    min = np.min(data)
+    max = np.max(data)
+    rng = [min, max]
+    adj = False
+
+    if rmv:
+        if mean + stdbnd*std < max:    # if data has large max tail adjust upper bound of rng
+            rng[1] = np.percentile(data, percclip[1])
+            adj = True
+        if mean - stdbnd*std > min:    # if data has large min tail adjust lower bound of rng
+            rng[0] = np.percentile(data, percclip[0])
+            adj = True
+    # remove data outside rng
+    # TODO: this can be optimized such that if rmv=0, no searching need be done...
+    Igood = (data>rng[0]) & (data < rng[1])
+    included_data = data[Igood]
+    outliers = data[~Igood]
+
+    stats = {'mean':mean, 'med':med, 'std':std, 'min':min, 'max':max}
+
+    return adj, included_data, outliers, rng, stats
+
+
+def removeNaN(x):
+    # This function removes NaNs
+    return x[~np.isnan(x)]
+
+
+def addJitter(data,std_ratio=.03):
+    "Adds random noise to a data series"
+    std = np.std(data)
+    data_out = data + np.random.normal(0, std*std_ratio, size=data.shape)
+    return data_out
+
 
 ### Generic python helper functions. Not specifically neuroscience related
 

@@ -16,6 +16,7 @@ import cufflinks as cf
 
 # internal files
 from plotly_scientific_plots.plotly_misc import in_notebook, plotOut
+from plotly_scientific_plots.misc_computational_tools import removeOutliers, removeNaN
 
 # personal functions
 #module_path = os.path.abspath(os.path.join('..'))
@@ -97,11 +98,8 @@ def plotHist(data,              # 1D list/np vector of data
                             'hovermode': 'closest',
                            }
                     )
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+
+    return plotOut(fig, plot)
 
 
 def plot2Hists(x1,              # data of 1st histogram
@@ -211,11 +209,7 @@ def plot2Hists(x1,              # data of 1st histogram
                             }
                     )
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+    return plotOut(fig, plot)
 
 
 def plotPolar(data,         # N-d list/numpy array
@@ -319,11 +313,7 @@ def plotPolar(data,         # N-d list/numpy array
     fig = go.Figure(data=traces, layout=layout)
     #pyo.plot(fig)
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+    return plotOut(fig, plot)
 
 
 def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
@@ -487,11 +477,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
                        )
     fig = go.Figure(data=traces, layout=layout)
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+    return plotOut(fig, plot)
 
 def scatterHistoPlot(x,
                      y,
@@ -597,13 +583,7 @@ def basicBarPlot(data,          # list of #'s
 
     fig = go.Figure(data=traces, layout=layout)
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
-
-    return None
+    return plotOut(fig, plot)
 
 def barPlot(data,           # list of 1D data vectors
             names=None,     # names of data vectors
@@ -735,13 +715,7 @@ def barPlot(data,           # list of 1D data vectors
 
     fig = go.Figure(data=traces, layout=layout)
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
-
-    return None
+    return plotOut(fig, plot)
 
 
 def propBarPlot(data,           # list of 1D data vectors
@@ -809,13 +783,7 @@ def propBarPlot(data,           # list of 1D data vectors
 
     fig = go.Figure(data=traces, layout=layout)
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
-
-    return None
+    return plotOut(fig, plot)
 
 
 def multiLine(data,         # [N,Lx] numpy array or list, where rows are each line
@@ -897,11 +865,7 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
                        )
     fig = go.Figure(data=traces, layout=layout)
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+    return plotOut(fig, plot)
 
 
 def plotDF( df,             # pandas DF
@@ -927,11 +891,7 @@ def plotDF( df,             # pandas DF
 
     fig = go.Figure(data=traces, layout=layout)
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+    return plotOut(fig, plot)
 
 
 
@@ -1022,11 +982,8 @@ def multiMean(data,
                        )
     fig = go.Figure(data=traces, layout=layout)
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+    return plotOut(fig, plot)
+
 
 def plotHist2D(x,           # 1D vector
                y,           # 1D vector
@@ -1095,10 +1052,9 @@ def plotHist2D(x,           # 1D vector
                        )
 
     fig = go.Figure(data=plots, layout=layout)
-    if plot:
-        pyo.iplot(fig)
-    else:
-        return fig
+
+    return plotOut(fig, plot)
+
 
 def boxPlot(med, quartiles, minmax, mean=None, outliers=None, name='boxplot', horiz=True, offset=0,
             legendGroup='boxplot', showleg=False, plot=False, col='blue', width=8):
@@ -1156,39 +1112,16 @@ def boxPlot(med, quartiles, minmax, mean=None, outliers=None, name='boxplot', ho
         outlierplot = [{wideaxis:outliers, offsetaxis:[offset]*len(outliers), 'name':name, 'legendgroup':legendGroup,
                         'mode':'markers', 'marker':dict(size = 2, color=col), 'hoverinfo': wideaxis+'+name'}]
         boxPlots += outlierplot
+    fig = go.Figure(data=boxPlots)
 
+    # as boxPlot is used primarily as a subcomponent in other plots, its output is not simply plotOut(fig, plot)
     if plot:
         fig = go.Figure(data=boxPlots)
-        pyo.iplot(fig)
+        plotfunc = pyo.iplot if in_notebook() else pyo.plot
+        plotfunc(fig)
     else:
         return boxPlots
 
-def removeOutliers(data, stdbnd=6, percclip=[5,95], rmv=True):
-    N = len(data)
-    mean = np.mean(data)
-    med = np.median(data)
-    std = np.std(data)
-    min = np.min(data)
-    max = np.max(data)
-    rng = [min, max]
-    adj = False
-
-    if rmv:
-        if mean + stdbnd*std < max:    # if data has large max tail adjust upper bound of rng
-            rng[1] = np.percentile(data, percclip[1])
-            adj = True
-        if mean - stdbnd*std > min:    # if data has large min tail adjust lower bound of rng
-            rng[0] = np.percentile(data, percclip[0])
-            adj = True
-    # remove data outside rng
-    # TODO: this can be optimized such that if rmv=0, no searching need be done...
-    Igood = (data>rng[0]) & (data < rng[1])
-    included_data = data[Igood]
-    outliers = data[~Igood]
-
-    stats = {'mean':mean, 'med':med, 'std':std, 'min':min, 'max':max}
-
-    return adj, included_data, outliers, rng, stats
 
 def scattermatrix(df,
                   title = 'Scatterplot Matrix',
@@ -1232,11 +1165,8 @@ def scattermatrix(df,
     fig['layout'].update(showlegend=False)
     [fig['layout']['yaxis' + str((n-1)*N+1)].update(title=cols[n-1]) for n in range(1,N+1)]
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+    return plotOut(fig, plot)
+
 
 ## Plotly plot subcomponents
 def abs_line(position, orientation, color='r', width=3, annotation=None):
@@ -1272,14 +1202,8 @@ def hline(position, **params):
     out = abs_line(position, orientation='h', **params)
     return out
 
-## misc utility functions
-def removeNaN(x):
-    # This function removes NaNs
-    return x[~np.isnan(x)]
 
-def add_jitter(data,std_ratio=.03):
-    "Adds random noise to a data series"
-    std = np.std(data)
-    data_out = data + np.random.normal(0, std*std_ratio, size=data.shape)
-    return data_out
-
+if __name__ == '__main__':
+    # this code is purely for debugging
+    data_source_1 = np.random.randn(800)
+    plotHist(data_source_1, title='Dataset 1', diff_tst=1)

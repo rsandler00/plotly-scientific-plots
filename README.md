@@ -42,6 +42,9 @@ psp.plot2Hists(data_source_1, data_source_2, names=['Data 1','Data 2'],
             normHist=True, title='Comparison of 2 Data Sources',
             KS=True, MW=True, T=True)
 ```
+
+Notice that the statistics box only appears when mouse hovers on the databar of the given color. 
+
 ![plot2Hist_1](images/plot2Hist_1.png?raw=true "plot2Hist_1")
 
 
@@ -94,7 +97,7 @@ psp.startDashboard(dash_plots, port=8052)
 
 An example dashboard appears below:
 
-*Add example figure !!!*
+![plot2Hist_1](images/dashboard1.png?raw=true "dashboard1")
 
 
 

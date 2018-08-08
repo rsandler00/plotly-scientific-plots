@@ -75,11 +75,7 @@ def plotMultiROC(y_true,        # list of true labels
 
     fig = go.Figure(data=traces, layout=layout)
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+    return plotOut(fig, plot)
 
 
 def plotMultiPR(y_true,        # list of true labels
@@ -135,11 +131,8 @@ def plotMultiPR(y_true,        # list of true labels
 
     fig = go.Figure(data=traces, layout=layout)
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+    return plotOut(fig, plot)
+
 
 def plotConfusionMatrix(y_true, # list of true labels
                         y_pred, # list of predicted labels
@@ -250,8 +243,4 @@ def plotConfusionMatrix(y_true, # list of true labels
         fig['data'] += [go.Scatter(y=[n_classes - .5, n_classes - .5], x=[-.5, n_classes + .5], showlegend=False,
                                    hoverinfo='none', line=dict(color='red', width=4, dash='solid'))]
 
-    if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
-        plotfunc(fig)
-    else:
-        return fig
+        return plotOut(fig, plot)

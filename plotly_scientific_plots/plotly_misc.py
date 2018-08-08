@@ -2,12 +2,12 @@
 
 import plotly.offline as pyo
 
-def plotOut(fig, plot):
+def plotOut(fig, plot=True):
     """ Standard code snippet to decide whether to return plotly fig object or plot """
     if plot:
         plotfunc = pyo.iplot if in_notebook() else pyo.plot
         plotfunc(fig)
-        return None
+        return fig
     else:
         return fig
 

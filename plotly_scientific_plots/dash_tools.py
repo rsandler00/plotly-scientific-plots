@@ -3,6 +3,9 @@ import numpy as np
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import json
+import pickle
+from plotly_scientific_plots.plotly_misc import jsonify
 
 
 
@@ -112,14 +115,36 @@ def startDashboardSerial(figs,
 
     return None
 
-def startDashboard(figs, parr=False, **kwargs):
+def startDashboard(figs,
+                   parr=False,  # T/F. If True, will spin seperate python process for Dash webserver
+                   save=None,  # either None or save_path
+                   **kwargs,    # additional optional params for startDashboardSerial (e.g. min_width)
+                  ):
+
+    # First convert to json format to allow pkling for multiprocessing
+    figs_dictform = jsonify(figs)
+
+    # save if nessesary (currently only saves in pkl format)
+    if save is not None:
+        # Note, can also use _dump_json, but its about 3x bigger filesize
+        _dump_pkl(figs_dictform, save)
+
     if parr:
-        p = Process(target=startDashboardSerial, args=(figs,), kwargs=kwargs)
+        p = Process(target=startDashboardSerial, args=(figs_dictform,), kwargs=kwargs)
         p.start()
         return p
     else:
-        startDashboardSerial(figs, **kwargs)
+        startDashboardSerial(figs_dictform, **kwargs)
         return None
 
-def test(q):
-    print(q)
+
+
+def _dump_pkl(obj, file_path):
+    ''' Saves a pkl file '''
+    with open(file_path, 'wb') as dfile:
+        pickle.dump(obj, dfile, protocol = 2)
+
+def _dump_json(obj, file_path):
+    ''' Saves a json file '''
+    with open(file_path, 'w') as dfile:
+        json.dump(obj, dfile, indent = 4)

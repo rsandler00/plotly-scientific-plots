@@ -33,15 +33,16 @@ def jsonify(plots):
     return plots_dict
 
 def jsonifyFigure(fig):
-    toDict = lambda v: dict(v) if type(v) in [plotly.graph_objs.graph_objs.PlotlyDict] else v
+    """
+    Converts a plotly Figure object into a dict.
+    Note that pyo.plot() works the same wr.t. a Figure object or a dict...
+    """
+    fig_dict = {
+        'data': fig._data,
+        'layout': fig._layout,
+    }
 
-    fig = dict(fig)
-    fig['layout'] = dict(fig['layout'])
-    fig['layout'] = {key:toDict(val) for (key,val) in fig['layout'].items()}
-    fig['data'] = [dict(d) for d in fig['data']]
-    fig['data'] = [{key:toDict(val) for (key,val) in d.items()} for d in fig['data']]
-    fig['frames'] = dict(fig['frames'])
-    return fig
+    return fig_dict
 
 
 def _iterateOverDicts(ob, func):

@@ -230,10 +230,12 @@ def plotConfusionMatrix(y_true, # list of true labels
         for i in totals_annot_indxs:
             fig['layout']['annotations'][i]['font'] = dict(size=fontsize, color='#000099')
 
-        # Add border lines for total row/col
-        fig['data'] += [go.Scatter(x=[n_classes-.5, n_classes-.5], y=[-.5, n_classes+.5], showlegend=False,
-                                   hoverinfo='none', line=dict(color='red', width=4, dash='solid'))]
-        fig['data'] += [go.Scatter(y=[n_classes - .5, n_classes - .5], x=[-.5, n_classes + .5], showlegend=False,
-                                   hoverinfo='none', line=dict(color='red', width=4, dash='solid'))]
+         # Add border lines for total row/col
+        data = list(fig['data'])
+        data += [go.Scatter(x=[n_classes - .5, n_classes - .5], y=[-.5, n_classes + .5], showlegend=False,
+                            hoverinfo='none', line=dict(color='red', width=4, dash='solid'))]
+        data += [go.Scatter(y=[n_classes - .5, n_classes - .5], x=[-.5, n_classes + .5], showlegend=False,
+                            hoverinfo='none', line=dict(color='red', width=4, dash='solid'))]
+        fig = go.Figure(data=data, layout=fig['layout'])
 
-        return plotOut(fig, plot)
+    return plotOut(fig, plot)

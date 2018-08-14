@@ -1,6 +1,10 @@
+from multiprocessing import Process
+import numpy as np
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+
+
 
 ###Dash wrappers
 def dashSubplot(plots,
@@ -79,11 +83,11 @@ def dashSubplot_from_figs(figs):
     return layout
 
 
-def startDashboard(figs,
-                   min_width=18,  # min width of column (in %). If more columns, scrolling is enabled
-                   max_width=50,  # max width of column (in %).
-                   indiv_widths=None,
-                   port=8050
+def startDashboardSerial(figs,
+                        min_width = 18,  # min width of column (in %). If more columns, scrolling is enabled
+                        max_width = 50,  # max width of column (in %).
+                        indiv_widths = None,
+                        port = 8050
                   ):
     """
     This starts the dash layout
@@ -91,6 +95,8 @@ def startDashboard(figs,
                         element within the outer list is a row within that column.
     :return:
     """
+
+
 
     # convert plotly fig objects to dash graph objects
     graphs = []
@@ -106,3 +112,14 @@ def startDashboard(figs,
 
     return None
 
+def startDashboard(figs, parr=False, **kwargs):
+    if parr:
+        p = Process(target=startDashboardSerial, args=(figs,), kwargs=kwargs)
+        p.start()
+        return p
+    else:
+        startDashboardSerial(figs, **kwargs)
+        return None
+
+def test(q):
+    print(q)

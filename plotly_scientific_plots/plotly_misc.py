@@ -5,7 +5,7 @@ import plotly
 import collections.abc
 import numpy as np
 
-def plotOut(fig, plot=True):
+def plotOut(fig, plot=True, mode='auto'):
     """ Standard code snippet to decide whether to return plotly fig object or plot """
     if plot:
         plotfunc = pyo.iplot if in_notebook() else pyo.plot

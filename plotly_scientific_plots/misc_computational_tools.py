@@ -7,7 +7,7 @@ import plotly.offline as pyo
 import plotly.graph_objs as go
 
 
-def norm_mat(X,
+def norm_mat(X,         # 2D np.ndarray
              X2=None,
              method='zscore',
              input_bounds=[],

@@ -106,7 +106,10 @@ def startDashboardSerial(figs,
     for c_num, col in enumerate(figs):
         g_col = []
         for r_num, f in enumerate(col):
-            g_col += [dcc.Graph(figure=f, id='row_%d_col_%d' % (r_num, c_num))]
+            if f != []:
+                g_col += [dcc.Graph(figure=f, id='row_%d_col_%d' % (r_num, c_num))]
+            else:
+                g_col += [[]]
         graphs += [g_col]
 
     app = dash.Dash()

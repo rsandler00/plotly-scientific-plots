@@ -318,7 +318,9 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
              plot=True,         # if false, just returns plotly json object
              title='Correlation', # title of plot
              xlbl='',           #
-             ylbl=''):          #
+             ylbl='',
+             markersize=None,   # either None or #. If None, will automatically determine best
+            ):
     """
     Plots x , y data and their trendline using plotly
     """
@@ -373,11 +375,11 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
         if type(z) != np.ndarray:  z = np.array(z)
         z = np.atleast_2d(z)
         cols = z
-        line_col = ['black']
-        lg = [None]
         showleg = False
         showscale = True
-        scattertext = ['z=%d' % (i) for i in range(Lx[0])]
+        line_col = ['black']
+        lg = [None]
+        scattertext = ['z=%d' % (i) for i in range(Lx[0])] if text is None else text
     else:
         if N>1:
             lg = names
@@ -396,20 +398,21 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
 
     # scale markersize
     Lxp = np.min([max(Lx),maxdata])
-    if Lxp > 5000:
-        markersize=1
-    elif Lxp >2000:
-        markersize=2
-    elif Lxp > 1000:
-        markersize = 3
-    elif Lxp > 200:
-        markersize = 4
-    elif Lxp > 80:
-        markersize = 5
-    elif Lxp > 25:
-        markersize = 7
-    else:
-        markersize = 9
+    if markersize is None:
+        if Lxp > 5000:
+            markersize=1
+        elif Lxp >2000:
+            markersize=2
+        elif Lxp > 1000:
+            markersize = 3
+        elif Lxp > 200:
+            markersize = 4
+        elif Lxp > 80:
+            markersize = 5
+        elif Lxp > 25:
+            markersize = 7
+        else:
+            markersize = 9
 
     scatPlot = [go.Scatter(x=x[n][Iplot[n]], y=y[n][Iplot[n]], name=names[n], legendgroup=lg[n], mode='markers',
                            opacity=.5, text=scattertext,
@@ -546,11 +549,18 @@ def basicBarPlot(data,          # list of #'s
                  xlbl='',
                  text=None,
                  orient=None,
+                 sort=False,     # if True, sorts from greatest to least
                  line=None,     # add line perpendicular to bars (eg to show mean)
                  plot=True):
     """
     Makes a basic bar plot where data is [n,1] list of values. No averaging/etc... For that see barPlot or propBarPlot
     """
+
+    if sort:
+        ord = np.argsort(data)[::-1]
+        data = np.array(data)[ord]
+        if names is not None:
+            names = np.array(names)[ord]
 
     traces = [go.Bar(x=names, y=data, text=text, textposition='auto',
                     marker=dict(
@@ -585,7 +595,8 @@ def barPlot(data,           # list of 1D data vectors
             plot=True):     # 1/0. If 0, just returns fig object
     """
     Makes a custom plotly barplot w/ data on side
-    :return:
+
+    Ex: barPlot(data, names, title='Plot Title', ylbl='Metric')
     """
     # TODO: add outlier removal
 
@@ -600,8 +611,8 @@ def barPlot(data,           # list of 1D data vectors
 
     if N<3:
         cols = cl.scales[str(3)]['qual']['Set1'][0:N]
-    elif N<10:
-        cols = cl.scales[str(N)]['qual']['Set1']
+    elif N<=12:
+        cols = cl.scales[str(N)]['qual']['Set3']
     else:
         cols=[None]*N
 
@@ -663,7 +674,7 @@ def barPlot(data,           # list of 1D data vectors
                 for i in range(N)]
     traces += dataPlot
 
-    xaxis = go.XAxis(
+    xaxis = go.layout.XAxis(
         # title="",
         showgrid=True,
         showline=True,

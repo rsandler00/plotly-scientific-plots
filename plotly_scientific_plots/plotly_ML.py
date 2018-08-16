@@ -143,6 +143,9 @@ def plotConfusionMatrix(y_true, # list of true labels
 
     n_classes = len(labels) if labels is not None else len(np.unique(y_true))
 
+    if labels is None:
+        labels = ['C%d' % n for n in range(1, n_classes+1)]
+
     conf_matrix = sk.metrics.confusion_matrix(y_true, y_pred, labels=range(n_classes))
 
     if binarized is not None:
@@ -178,8 +181,10 @@ def plotConfusionMatrix(y_true, # list of true labels
     # normalize matrix
     color_mat = copy.deepcopy(conf_matrix_tots)
     if norm != 'all':
-        axis = 0 if norm=='cols' else 1
-        norm_conf_matrix = np.nan_to_num(conf_matrix / np.sum(conf_matrix, axis=axis))
+        axis = 1 if norm=='cols' else 0
+        axis_sums = np.sum(conf_matrix, axis=axis).astype('float32')
+        axis_sums[axis_sums==0] = np.nan # this avoids divide by 0.
+        norm_conf_matrix = np.nan_to_num(conf_matrix / axis_sums)
     else:
         norm_conf_matrix = conf_matrix
     color_mat = color_mat.astype(float)
@@ -194,8 +199,10 @@ def plotConfusionMatrix(y_true, # list of true labels
 
     fig = ff.create_annotated_heatmap(color_mat, x=num_labels, y=num_labels, colorscale='Greys')
 
+    acc = perc(np.squeeze(y_true) == np.squeeze(y_pred))
+
     fig.layout.yaxis.title = 'True'
-    fig.layout.xaxis.title = 'Predicted (Total accuracy = %.3f%%)' % perc(y_true==y_pred)
+    fig.layout.xaxis.title = 'Predicted (Total accuracy = %.3f%%)' % acc
     fig.layout.xaxis.titlefont.size = fontsize
     fig.layout.yaxis.titlefont.size = fontsize
     fig.layout.xaxis.tickfont.size = fontsize - 2

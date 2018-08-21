@@ -168,8 +168,10 @@ def plotConfusionMatrix(y_true, # list of true labels
     # adds an extra row for matrix totals
     conf_matrix_tots =  copy.deepcopy(conf_matrix)
     if add_totals:
-        conf_matrix_tots = np.vstack((conf_matrix, np.sum(conf_matrix, 0)))
-        conf_matrix_tots = np.hstack((conf_matrix_tots, np.atleast_2d(np.sum(conf_matrix_tots, 1)).T ))
+        pred_tots = np.sum(conf_matrix, 0)
+        conf_matrix_tots = np.vstack((conf_matrix, pred_tots))
+        true_tots = np.sum(conf_matrix_tots, 1, keepdims=True)
+        conf_matrix_tots = np.hstack((conf_matrix_tots, true_tots ))
         labels = labels + ['TOTAL']
 
     # shorten labels
@@ -178,17 +180,30 @@ def plotConfusionMatrix(y_true, # list of true labels
     # numeric labels
     num_labels = list(range(len(labels)))
 
+    def normMatByTotal(mat, axis=0):
+        ''' This normalzies a matrix by its row (axis=1) or column (axis=0) totals'''
+        axis_sums = np.sum(mat, axis=axis, keepdims=True).astype('float32')
+        axis_sums[axis_sums == 0] = np.nan  # this avoids divide by 0.
+        mat = np.nan_to_num(mat / axis_sums)
+        return mat
+
+    # percentage hover labels
+    row_percs = normMatByTotal(conf_matrix, axis=1)
+    col_percs = normMatByTotal(conf_matrix, axis=0)
+
     # normalize matrix
     color_mat = copy.deepcopy(conf_matrix_tots)
     if norm != 'all':
-        axis = 1 if norm=='cols' else 0
-        axis_sums = np.sum(conf_matrix, axis=axis).astype('float32')
-        axis_sums[axis_sums==0] = np.nan # this avoids divide by 0.
-        norm_conf_matrix = np.nan_to_num(conf_matrix / axis_sums)
+        norm_conf_matrix = row_percs if norm=='rows' else col_percs
     else:
         norm_conf_matrix = conf_matrix
     color_mat = color_mat.astype(float)
     color_mat[:-1,:-1] = norm_conf_matrix
+
+    # hover text
+    txt_format = '<b>Pred:</b> %s <br><b>True:</b> %s <br><b>Row norm:</b> %.3f%% <br><b>Col norm:</b> %.3f%%'
+    htext = np.array([[txt_format % (labels[c], labels[r], row_percs[r,c]*100, col_percs[r,c]*100)
+                       for c in range(n_classes)] for r in range(n_classes)])
 
     # Adjust Total rows
     if add_totals:
@@ -196,8 +211,11 @@ def plotConfusionMatrix(y_true, # list of true labels
         tot_val = np.min(norm_conf_matrix) + (np.max(norm_conf_matrix) - np.min(norm_conf_matrix))*totals_row_shading
         color_mat[-1, :] = tot_val
         color_mat[:, -1] = tot_val
+        pred_tot_text = np.array(['<b>%% of Predictions:</b> %.2f%%' % x for x in pred_tots/sum(pred_tots)*100])
+        true_tot_text = np.array([['<b>%% of True Data:</b> %.2f%%' % x] for x in true_tots[:-1]/sum(true_tots[:-1])*100]+[['Total Samples']])
+        htext = np.hstack((np.vstack((htext, pred_tot_text)), true_tot_text))
 
-    fig = ff.create_annotated_heatmap(color_mat, x=num_labels, y=num_labels, colorscale='Greys')
+    fig = ff.create_annotated_heatmap(color_mat, x=num_labels, y=num_labels, colorscale='Greys', annotation_text=conf_matrix_tots)
 
     acc = perc(np.squeeze(y_true) == np.squeeze(y_pred))
 
@@ -213,6 +231,7 @@ def plotConfusionMatrix(y_true, # list of true labels
     fig.layout.xaxis.range = [-.5, n_classes+.5]
     fig.layout.xaxis.tickvals = num_labels
     fig.layout.xaxis.ticktext = labels_short
+    fig.data[0].hoverlabel.bgcolor = 'rgb(188,202,225)'
 
     # fig.layout.yaxis.autorange = 'reversed'
     fig.layout.yaxis.tickmode = 'array'
@@ -222,9 +241,14 @@ def plotConfusionMatrix(y_true, # list of true labels
 
     fig['data'][0]['xgap'] = 1
     fig['data'][0]['ygap'] = 1
+    ## Change annotation font (& text)
     for i in range(len(fig.layout.annotations)):
         fig.layout.annotations[i].font.size = fontsize-3
-        fig.layout.annotations[i].text = str(conf_matrix_tots.flatten()[i])
+        #fig.layout.annotations[i].text = str(conf_matrix_tots.flatten()[i])
+
+    # add hover text
+    fig.data[0].text = htext
+    fig.data[0].hoverinfo = 'text'
 
     ### Adjust totals fontstyle
     if add_totals:

@@ -23,6 +23,11 @@ Required packages:
 
 To install, simply use `pip install plotly-scientific-plots`
 
+
+**NOTE**: to get latest version install directly from git, which is more commonly updated. Use the following: 
+`pip install git+https://github.com/rsandler00/plotly-scientific-plots.git`
+
+
 To import use `import plotly_scientific_plots as psp`
 
 ## Examples and Usage

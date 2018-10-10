@@ -8,6 +8,7 @@ import plotly.offline as pyo
 import plotly.graph_objs as go
 import plotly as py
 import colorlover as cl
+import plotly.figure_factory as ff
 
 # internal files
 from plotly_scientific_plots.plotly_misc import in_notebook, plotOut
@@ -30,7 +31,7 @@ def plotHist(data,              # 1D list/np vector of data
 
     Usage:
     x = np.random.normal(0,1,(100))
-    plotHist(x, title=Normal Distribution', xlbl='values', diff_tst=1)
+    plotHist(x, title='Normal Distribution', xlbl='values', diff_tst=1)
 
     :return: NA
     """
@@ -39,8 +40,11 @@ def plotHist(data,              # 1D list/np vector of data
     data = np.array(data)
 
     # remove NaNs/Infs
-    data = data[~np.isnan(data)]
-    data = data[np.isfinite(data)]
+    try:
+        data = data[~np.isnan(data)]
+        data = data[np.isfinite(data)]
+    except:
+        print('Failed to do NaN removal')
 
     adj, corr_data, outliers, rng, stats = removeOutliers(data, stdbnd=6, percclip=[5, 95], rmv=rm_outliers)
 
@@ -1124,7 +1128,7 @@ def boxPlot(med, quartiles, minmax, mean=None, outliers=None, name='boxplot', ho
         return boxPlots
 
 
-def scattermatrix(df,
+def scatterMatrix(df,
                   title = 'Scatterplot Matrix',
                   plot=True):  # if false, just returns plotly json object
     """
@@ -1167,6 +1171,107 @@ def scattermatrix(df,
     [fig['layout']['yaxis' + str((n-1)*N+1)].update(title=cols[n-1]) for n in range(1,N+1)]
 
     return plotOut(fig, plot)
+
+def tornadoPlot(vals,   # in Nx3 array, where columns are[low_val, orig_val, high_val]
+                names,  # parameter names (list of str)
+                title,
+                width=40,
+                xlbl = 'Output node probability',
+                plot=True
+                ):
+    """ Makes a tornado plot in plotly """
+
+    n_pars = len(names)
+    traces = []
+
+    # positive change lines
+    traces += [go.Scatter(x=row[1:], y=[names[i]] * 2, name=names[i], legendgroup='pos_change',
+                          line={'color': 'green', 'width': width})
+               for i, row in enumerate(vals)]
+    traces += [go.Scatter(x=row[:2], y=[names[i]] * 2, name=names[i], legendgroup='neg_change',
+                          line={'color': 'red', 'width': width})
+               for i, row in enumerate(vals)]
+
+    layout = go.Layout(title=title,
+                       xaxis={'title': xlbl},
+                       yaxis={'position': .5, 'autorange': 'reversed'},
+                       # yaxis={'title': ylbl},
+                       hovermode='closest',
+                       showlegend=False,
+                       )
+    fig = go.Figure(data=traces, layout=layout)
+
+    return plotOut(fig, plot)
+
+
+def plotTable2(data,
+              top_headers,
+              width=None,
+              plot=True,
+              title=None,
+              ):
+    '''
+    Wrapper for plotly table function
+    NOTE: this is NOT compatible w/ dashboards as plotly table object doesnt have a ._data field & thus
+            cant easily be jsonified
+    :return:
+    '''
+    colors = cl.scales['5']['seq']['Blues']
+
+    trace = go.Table(
+        header=dict(values=top_headers,
+                    line = dict(color='#7D7F80'),
+                    fill = dict(color='#a1c3d1'),
+                    font=dict(color='white', size=12),
+                    height=None,    # row-height
+                    align = ['left'] * 5),
+        cells=dict(values=data,
+                   line = dict(color='#7D7F80'),
+                   fill = dict(color='#EDFAFF'),
+                   align = ['left'] * 5),
+        hoverinfo='x+y+name'
+    )
+
+    layout = dict(
+        width=width,
+        height=None,
+        title=title
+
+    )
+    data = [trace]
+    fig = dict(data=data, layout=layout)
+
+    return plotOut(fig, plot)
+
+def plotTable(data,
+              top_headers=None, # only required if data is list/nparray, not for pandas df
+              width=None,
+              plot=True,
+              title=None,
+              ):
+    '''
+    Wrapper for plotly table function
+    :return:
+    '''
+    import pandas as pd
+
+    if type(data)==pd.core.frame.DataFrame:
+        top_headers = data.columns
+        tbl_data = data.values
+
+    # TODO: this should only be done for numeric datatypes
+    tbl_data = tbl_data.astype('|S7').astype(str)
+
+    inp_data = np.vstack((top_headers, tbl_data))
+
+    fig = ff.create_table(inp_data, hoverinfo='skip')
+
+    fig.layout.width = width
+    fig.layout.title = title
+    fig.layout.margin = {'b': 80, 'r': 80}
+
+    return plotOut(fig, plot)
+
 
 
 ## Plotly plot subcomponents

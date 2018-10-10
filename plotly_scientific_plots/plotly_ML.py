@@ -1,11 +1,13 @@
 import numpy as np
 import copy
+
 # import sklearn
 import sklearn as sk
 import sklearn.preprocessing
 import sklearn.model_selection
 import sklearn.ensemble
 import sklearn.metrics
+
 # import plotly
 import plotly.graph_objs as go
 import plotly.figure_factory as ff
@@ -238,6 +240,7 @@ def plotConfusionMatrix(y_true, # list of true labels
     fig.layout.yaxis.range = [n_classes+.5, -.5]
     fig.layout.yaxis.tickvals = num_labels
     fig.layout.yaxis.ticktext = labels_short
+    fig.layout.margin.l = 120   # adjust left margin to avoid ylbl overlaying tick str's
 
     fig['data'][0]['xgap'] = 1
     fig['data'][0]['ygap'] = 1

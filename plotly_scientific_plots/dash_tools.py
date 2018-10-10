@@ -114,7 +114,7 @@ def startDashboardSerial(figs,
 
     app = dash.Dash()
     app.layout = dashSubplot(graphs, min_width, max_width, indiv_widths)
-    app.run_server(port=port)
+    app.run_server(port=port, debug=False)
 
     return None
 

@@ -558,6 +558,7 @@ def basicBarPlot(data,          # list of #'s
                  plot=True):
     """
     Makes a basic bar plot where data is [n,1] list of values. No averaging/etc... For that see barPlot or propBarPlot
+    EX: psp.basicBarPlot([1,2,3,2])
     """
 
     if sort:
@@ -885,8 +886,14 @@ def plotDF( df,             # pandas DF
         cf.go_offline()
         df.iplot(kind='scatter')
     """
+    import pandas as pd
 
-    traces = [go.Scatter(x=df.index, y=df[col], name=col, mode=linemode)  for col in df.columns]
+    # convert cat columns to numeric columns
+    for col in df.columns:
+        if df[col].dtype.name=='category':
+            df[col] = df[col].cat.codes
+
+    traces = [go.Scatter(x=df.index, y=df[col].values, name=col, mode=linemode)  for col in df.columns]
 
     layout = go.Layout(title=title,
                        xaxis={'title': df.index.name},
@@ -1243,6 +1250,7 @@ def plotTable2(data,
 
     return plotOut(fig, plot)
 
+
 def plotTable(data,
               top_headers=None, # only required if data is list/nparray, not for pandas df
               width=None,
@@ -1273,9 +1281,35 @@ def plotTable(data,
     return plotOut(fig, plot)
 
 
+def linePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
+             x=None,
+             title='',
+             xlbl='',
+             ylbl='',
+             plot=True
+             ):
+    ''' Plots a basic line. No frills (yet)'''
+
+    y = np.atleast_2d(y)
+    [n_sigs, n_bins] = y.shape
+
+    traces = []
+    for n, sig in enumerate(y):
+        traces += [go.Scatter(y=sig, x=x)]
+
+    layout = go.Layout(title=title,
+                       xaxis={'title': xlbl},
+                       yaxis={'title': ylbl},
+                       # yaxis={'title': ylbl},
+                       hovermode='closest',
+                       showlegend=False,
+                       )
+    fig = go.Figure(data=traces, layout=layout)
+
+    return plotOut(fig, plot)
 
 ## Plotly plot subcomponents
-def abs_line(position, orientation, color='r', width=3, annotation=None):
+def abs_line(position, orientation, color='red', width=3, annotation=None):
     if orientation == 'v':
         big = 'x'
         lil = 'y'

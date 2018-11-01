@@ -121,7 +121,7 @@ def startDashboardSerial(figs,
 def startDashboard(figs,
                    parr=False,  # T/F. If True, will spin seperate python process for Dash webserver
                    save=None,  # either None or save_path
-                   **kwargs,    # additional optional params for startDashboardSerial (e.g. min_width)
+                   **kwargs    # additional optional params for startDashboardSerial (e.g. min_width)
                   ):
 
     # First convert to json format to allow pkling for multiprocessing

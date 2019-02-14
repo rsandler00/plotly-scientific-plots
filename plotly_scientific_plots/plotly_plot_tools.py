@@ -327,6 +327,9 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
             ):
     """
     Plots x , y data and their trendline using plotly
+
+    EX: plot diff between two series
+        corrPlot(x, y, xlbl='A', ylbl='B', addCorr=False, addCorrLine=False, addXYline=True)
     """
     #TODO: remove outliers
 
@@ -555,6 +558,8 @@ def basicBarPlot(data,          # list of #'s
                  orient=None,
                  sort=False,     # if True, sorts from greatest to least
                  line=None,     # add line perpendicular to bars (eg to show mean)
+                 color='rgb(158,202,225)',  # barplot internal color
+                 width=None,    # plot width. If None, autoscales
                  plot=True):
     """
     Makes a basic bar plot where data is [n,1] list of values. No averaging/etc... For that see barPlot or propBarPlot
@@ -569,7 +574,7 @@ def basicBarPlot(data,          # list of #'s
 
     traces = [go.Bar(x=names, y=data, text=text, textposition='auto',
                     marker=dict(
-                        color='rgb(158,202,225)',
+                        color=color,
                         line=dict(
                             color='rgb(8,48,107)',
                             width=1.5),
@@ -582,6 +587,7 @@ def basicBarPlot(data,          # list of #'s
             yaxis={'title': ylbl},
             xaxis={'title': xlbl},
             hovermode='closest',
+            width = width,
     )
     if line:
         layout.shapes = [hline(line)]
@@ -876,8 +882,11 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
 
 def plotDF( df,             # pandas DF
             title='',       # title of plot
-            ylbl ='',       # ylabel
+            ylbl='',       # ylabel
+            xlbl=None,        # if None, uses df.index.name
             linemode='lines',   # 'lines'/'markers'/'lines+markers'
+            cat_col = None, # if name, then shades BG according to the label
+            opacity = .7,   # transparaency of lines. [0.0, 1.0]
             plot=True,      # 1/0 whether we want to plot each of the individual lines
         ):
     """
@@ -888,18 +897,51 @@ def plotDF( df,             # pandas DF
     """
     import pandas as pd
 
+    nbins, ncols = df.shape
+
     # convert cat columns to numeric columns
     for col in df.columns:
         if df[col].dtype.name=='category':
             df[col] = df[col].cat.codes
 
-    traces = [go.Scatter(x=df.index, y=df[col].values, name=col, mode=linemode)  for col in df.columns]
+    # make line colors
+    colors = cl.scales[str(max(3, ncols))]['qual']['Set1']
+    tcols = ['rgba%s,%.2f)' % (c[3:-1], opacity) for c in colors]
+
+    traces = [go.Scatter(
+                x=df.index,
+                y=df[col].values,
+                name=col,
+                mode=linemode,
+                line={"color": tcols[i]}
+                )
+              for i, col in enumerate(df.columns)
+              ]
+
+    if xlbl is None:
+        xlbl = df.index.name
 
     layout = go.Layout(title=title,
-                       xaxis={'title': df.index.name},
+                       xaxis={'title': xlbl},
                        yaxis={'title': ylbl},
                        showlegend=True,
                        )
+
+    # shade background based on label
+    if cat_col is not None:
+        cats, cats_reindexed = np.unique(df[cat_col], return_inverse=True)
+        n_cats = len(cats)
+        cols = cl.scales[str(max(n_cats, 3))]['qual']['Set1']
+        transition_points = list(np.where(df.label.diff() != 0)[0]) + [df.shape[0] - 1]
+        print(cats)
+        shapes = []
+        for i in range(len(transition_points) - 1):
+            start = df.iloc[transition_points[i]].name
+            end = df.iloc[transition_points[i + 1] - 1].name
+            color = cols[cats_reindexed[transition_points[i]]]
+            shapes.append(addRect(start, end, color=color))
+        layout.shapes = shapes
+        # TODO: add legend
 
     fig = go.Figure(data=traces, layout=layout)
 
@@ -1281,7 +1323,7 @@ def plotTable(data,
     return plotOut(fig, plot)
 
 
-def linePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
+def basicLinePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
              x=None,
              title='',
              xlbl='',
@@ -1308,8 +1350,70 @@ def linePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
 
     return plotOut(fig, plot)
 
+
+def basicHeatmap(z,
+                 x=[],
+                 y=[],
+                 title='',
+                 xlbl='',
+                 ylbl='',
+                 plot=True):
+    ''' Plots a basic heatmap'''
+    traces = [go.Heatmap(z=z, x=x, y=y)]
+
+    layout = go.Layout(title=title,
+                       xaxis={'title': xlbl},
+                       yaxis={'title': ylbl},
+                       )
+    fig = go.Figure(data=traces, layout=layout)
+
+    return plotOut(fig, plot)
+
+
 ## Plotly plot subcomponents
+def makeEventLines(times,   # 1d array of timestamps
+                   orientation='v', # 'v' or 'h'
+                   labels=None, # optional 1d numeric array of event type indices
+                   labelmap=None, # optional labelmap in list form, eg: ['car', 'truck']
+                   rng=None     # optional filter range for timestamps
+                   ):
+
+    # preprocess data
+    times = np.array(times)
+
+    # filter labels for relevant timerange
+    if rng is not None:
+        filt_indxs = (times >= rng[0]) & (times < rng[1])
+        times = times[filt_indxs]
+        if labels is not None:
+            labels = labels[filt_indxs]
+
+    n_events = times.size
+
+    # generate colors
+    if labels is not None:
+        if labelmap is None:
+            labelmap =  [str(x) for x in np.unique(labels)]
+        n_types = len(labelmap)
+        cols = cl.scales[str(max(3, n_types))]['qual']['Set2']
+    else:
+        labels = np.zeros(n_events)
+        cols = ['red']
+
+    # create line shapes
+    lines = []
+    for i in range(n_events):
+        lines += [abs_line(times[i], orientation, color=cols[labels[i]])]
+
+    return lines
+
 def abs_line(position, orientation, color='red', width=3, annotation=None):
+    '''
+    Creates an absolute line which appears irregardless of panning.
+    To use, add output to layout shapes:
+        layout.shapes = [hline(line)]
+    '''
+
     if orientation == 'v':
         big = 'x'
         lil = 'y'
@@ -1335,12 +1439,51 @@ def abs_line(position, orientation, color='red', width=3, annotation=None):
 
     return shape
 
+
 def vline(position, **params):
+    ''' Creates vertical line shape'''
     return abs_line(position, orientation='v', **params)
 
+
 def hline(position, **params):
+    ''' Creates horizontal line shape'''
     out = abs_line(position, orientation='h', **params)
     return out
+
+
+def addRect(start, end, orientation='V', color='#ff0000', opacity=0.1):
+    ''' This makes a rectangluar background from start til end with shaded color. Useful for highlighting things in plots'''
+    if orientation == 'V':
+        xref = 'x'
+        yref = 'paper'
+        x0 = start
+        x1 = end
+        y0 = 0
+        y1 = 1
+    elif orientation == 'H':
+        yref = 'y'
+        xref = 'paper'
+        y0 = start
+        y1 = end
+        x0 = 0
+        x1 = 1
+    else:
+        raise ValueError('Orientation must be either "H" or "V". You input %s' % str(orientation))
+
+    return {
+        'type': 'rect',
+        'xref': xref,
+        'yref': yref,
+        'x0': x0,
+        'y0': y0,
+        'x1': x1,
+        'y1': y1,
+        'fillcolor': color,
+        'opacity': opacity,
+        'line': {
+            'width': 0,
+        }
+    }
 
 
 if __name__ == '__main__':

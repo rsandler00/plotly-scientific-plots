@@ -7,12 +7,13 @@ import copy
 import plotly.offline as pyo
 import plotly.graph_objs as go
 import plotly as py
+from plotly.tools import make_subplots
 import colorlover as cl
 import plotly.figure_factory as ff
 
 # internal files
 from plotly_scientific_plots.plotly_misc import in_notebook, plotOut
-from plotly_scientific_plots.misc_computational_tools import removeOutliers, removeNaN
+from plotly_scientific_plots.misc_computational_tools import removeOutliers, removeNaN, norm_mat
 
 ###Scientific Plots
 def plotHist(data,              # 1D list/np vector of data
@@ -880,75 +881,6 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
     return plotOut(fig, plot)
 
 
-def plotDF( df,             # pandas DF
-            title='',       # title of plot
-            ylbl='',       # ylabel
-            xlbl=None,        # if None, uses df.index.name
-            linemode='lines',   # 'lines'/'markers'/'lines+markers'
-            cat_col = None, # if name, then shades BG according to the label
-            opacity = .7,   # transparaency of lines. [0.0, 1.0]
-            plot=True,      # 1/0 whether we want to plot each of the individual lines
-        ):
-    """
-    This plots a pandas DF.
-    NOTE: see also plotly's cufflinks package which makes pnadas plotting super easy!
-        cf.go_offline()
-        df.iplot(kind='scatter')
-    """
-    import pandas as pd
-
-    nbins, ncols = df.shape
-
-    # convert cat columns to numeric columns
-    for col in df.columns:
-        if df[col].dtype.name=='category':
-            df[col] = df[col].cat.codes
-
-    # make line colors
-    colors = cl.scales[str(max(3, ncols))]['qual']['Set1']
-    tcols = ['rgba%s,%.2f)' % (c[3:-1], opacity) for c in colors]
-
-    traces = [go.Scatter(
-                x=df.index,
-                y=df[col].values,
-                name=col,
-                mode=linemode,
-                line={"color": tcols[i]}
-                )
-              for i, col in enumerate(df.columns)
-              ]
-
-    if xlbl is None:
-        xlbl = df.index.name
-
-    layout = go.Layout(title=title,
-                       xaxis={'title': xlbl},
-                       yaxis={'title': ylbl},
-                       showlegend=True,
-                       )
-
-    # shade background based on label
-    if cat_col is not None:
-        cats, cats_reindexed = np.unique(df[cat_col], return_inverse=True)
-        n_cats = len(cats)
-        cols = cl.scales[str(max(n_cats, 3))]['qual']['Set1']
-        transition_points = list(np.where(df.label.diff() != 0)[0]) + [df.shape[0] - 1]
-        print(cats)
-        shapes = []
-        for i in range(len(transition_points) - 1):
-            start = df.iloc[transition_points[i]].name
-            end = df.iloc[transition_points[i + 1] - 1].name
-            color = cols[cats_reindexed[transition_points[i]]]
-            shapes.append(addRect(start, end, color=color))
-        layout.shapes = shapes
-        # TODO: add legend
-
-    fig = go.Figure(data=traces, layout=layout)
-
-    return plotOut(fig, plot)
-
-
-
 def multiMean(data,
               x=None,
               std=True,
@@ -1328,6 +1260,7 @@ def basicLinePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
              title='',
              xlbl='',
              ylbl='',
+             names=None,    # list of legend entries
              plot=True
              ):
     ''' Plots a basic line. No frills (yet)'''
@@ -1335,16 +1268,22 @@ def basicLinePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
     y = np.atleast_2d(y)
     [n_sigs, n_bins] = y.shape
 
+    if names == None:
+        show_leg = False
+        names = [None] * n_sigs
+    else:
+        show_leg = True
+
     traces = []
     for n, sig in enumerate(y):
-        traces += [go.Scatter(y=sig, x=x)]
+        traces += [go.Scatter(y=sig, x=x, name=names[n])]
 
     layout = go.Layout(title=title,
                        xaxis={'title': xlbl},
                        yaxis={'title': ylbl},
                        # yaxis={'title': ylbl},
                        hovermode='closest',
-                       showlegend=False,
+                       showlegend=show_leg,
                        )
     fig = go.Figure(data=traces, layout=layout)
 
@@ -1484,6 +1423,38 @@ def addRect(start, end, orientation='V', color='#ff0000', opacity=0.1):
             'width': 0,
         }
     }
+
+
+def _plotSubplots(trace_array,
+                  vert_spacing=.1,
+                  title = '',
+                  ylbl='',  # currently buggy
+                  xlbl='',
+                  plot=True
+                  ):
+    '''
+    Internal function to make subplots based on passed traces, which are in a 2d np array
+    '''
+    n_rows, n_cols = trace_array.shape
+
+    fig = make_subplots(rows=n_rows,
+                        cols=n_cols,
+                        shared_xaxes=True,
+                        vertical_spacing=vert_spacing,
+                        subplot_titles=('Acoustic', 'Magnetic', 'Seismic', 'Predictions'),
+                        )
+
+    for r in range(n_rows-1, -1, -1):   # (start from bottom so x-axis is on bottom plot)
+        for c in range(n_cols-1, -1, -1):
+            [fig.append_trace(trace, r+1, c+1) for trace in trace_array[r,c]]
+
+
+    fig.layout.title = title
+    fig.layout.xaxis = {'title': xlbl}
+    #fig.layout.yaxis = {'title': ylbl}
+    fig.layout.showlegend = True
+
+    return plotOut(fig, plot)
 
 
 if __name__ == '__main__':

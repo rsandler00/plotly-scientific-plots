@@ -5,10 +5,16 @@ import plotly
 import collections.abc
 import numpy as np
 
-def plotOut(fig, plot=True, mode='auto'):
+def plotOut(fig,
+            plot=True,
+            mode='auto' # 'auto'/'tab'. If 'tab' forces to plot in seperate tab even if in notebook
+            ):
     """ Standard code snippet to decide whether to return plotly fig object or plot """
     if plot:
-        plotfunc = pyo.iplot if in_notebook() else pyo.plot
+        if in_notebook() and mode == 'auto':
+            plotfunc = pyo.iplot
+        else:
+            plotfunc = pyo.plot
         plotfunc(fig)
         return fig
     else:

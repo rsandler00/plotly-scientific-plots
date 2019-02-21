@@ -5,6 +5,7 @@ from itertools import product
 #plotting
 import plotly.offline as pyo
 import plotly.graph_objs as go
+from plotly_scientific_plots.plotly_misc import plotOut
 
 
 def norm_mat(X,         # 2D np.ndarray
@@ -18,7 +19,8 @@ def norm_mat(X,         # 2D np.ndarray
     :param X2: optional 2nd matrix which will be norm'd by the same scale as the first
     :param method: if a number works by np.linalg.norm function.
                     If 'zscore' then zscores.
-                    If 'baseline', than norm'd by 1st element of vector
+                    If 'baseline', then norm'd by 1st element of vector
+                    If 'non', then does nothing
     :return: Y - norm'd matrix
     """
 
@@ -42,18 +44,54 @@ def norm_mat(X,         # 2D np.ndarray
         Y = x_std * (output_bounds[1] - output_bounds[0]) + output_bounds[0]
     if method == 'non' or method == None:
         Y = X
+
     return Y
 
-def getSTA(trigger, signal, rng,
+
+def calcSTA(trigger,
+           signal,
+           rng,
            lags=1,
            norm='zscore', #how each STA trial is normalized in all_sta
+           removeOutliers=True,     #1/0. If 1 remove data +- 6 std devs from mean
+         ):
+    ''' see plotSTA '''
+
+    signal = np.array(signal)
+
+    if removeOutliers:
+        # bounds signal at +-6std. Not most elegant, but works...
+        stdbnd = 4
+        mn = np.mean(signal)
+        std = np.std(signal)
+        maxx = mn + stdbnd * std
+        signal[signal > maxx] = maxx
+        minn = mn - stdbnd * std
+        signal[signal < minn] = minn
+
+    all_sta = np.array(
+        [signal[t - rng[0]:t + rng[1]:lags] for t in trigger if t + rng[1] < len(signal) and t - rng[0] > 0])
+    all_sta = norm_mat(all_sta, method=norm)
+
+    bins = np.arange(-rng[0], rng[1], lags)
+    sta = np.mean(all_sta, axis=0)
+
+    return sta, bins, all_sta
+
+
+def getSTA(trigger,
+           signal,
+           rng,
+           lags=1,
+           norm='zscore', #how each STA trial is normalized in all_sta
+           removeOutliers=True,     #1/0. If 1 remove data +- 6 std devs from mean
            # plotting parameters
            plot=False,
-           getFig = False, #if true returns the figure object instead of plotting
            xtra_times = None, #plots dots relative to on times.
            Fs=1,
-           removeOutliers=1,     #1/0. If 1 remove data +- 6 std devs from mean
-           title='Stimulus Triggered Average'):
+
+           title='Stimulus Triggered Average'
+           ):
     '''
     Computes stimulus triggered average of signal from trigger
     :param trigger:  trigger points around which to calc STA. 1D vector of bins (thus ints)
@@ -65,54 +103,36 @@ def getSTA(trigger, signal, rng,
     :param title: title of plot
     :return:
     '''
-    signal = np.array(signal)
+
+    # calculate STA
+    sta, bins, all_sta = calcSTA(trigger, signal, rng, lags=lags, norm=norm, removeOutliers=removeOutliers)
+
+    # generate STA plot
     N = len(trigger)
+    sta_rescaled = len(trigger)/(np.max(sta)-np.min(sta))*(sta-np.min(sta))+.5
+    # good colormaps are Picnic, Rainbow
+    heatmap = go.Heatmap(x=bins/Fs, y= np.arange(1,len(all_sta)+1), z=all_sta, colorscale='Rainbow')
+    line = go.Scatter(x=bins/Fs, y=sta_rescaled, line={'color':'black', 'width':3}, name='STA')
+    yaxis = go.Scatter(x=[0,0], y=[.5, N+.5], showlegend=False, line={'color': 'black', 'dash':'dash','width':1})
+    if xtra_times is not None:
+        dots = [go.Scatter(x=(xtra_times-trigger)/Fs, y=np.arange(N)+1,
+                           name='dots',
+                           mode='markers',
+                           marker=dict(size=4, color='white'),
+                           )]
+    else:
+        dots = []
 
-    if removeOutliers:
-        #bounds signal at +-6std. Not most elegant, but works...
-        stdbnd = 4
-        mn = np.mean(signal)
-        std = np.std(signal)
-        maxx = mn + stdbnd * std
-        signal[signal>maxx]=maxx
-        minn = mn - stdbnd * std
-        signal[signal < minn] = minn
+    layout = {'title':title,
+              'xaxis':{'title': 'Times (s)', 'range': [-rng[0]/Fs, rng[1]/Fs]},
+              'yaxis': {'title': 'Trial', 'range': [.5, N+.5]},
+            }
+    fig = go.Figure(data=[heatmap, line, yaxis]+dots, layout=layout)
 
-    all_sta = np.array([signal[t - rng[0]:t + rng[1]:lags] for t in trigger if t + rng[1] < len(signal) and t - rng[0] > 0])
-    all_sta = norm_mat(all_sta, method=norm)
+    plotOut(fig, plot)
 
-    bins = np.arange(-rng[0], rng[1], lags)
-    sta = np.mean(all_sta, axis=0)
+    return sta, bins, all_sta, fig
 
-    if plot:
-        sta_rescaled = len(trigger)/(np.max(sta)-np.min(sta))*(sta-np.min(sta))
-        # good colormaps are Picnic, Rainbow
-        heatmap = go.Heatmap(x=bins/Fs*1000, y= np.arange(1,len(all_sta)+1), z=all_sta, colorscale='Rainbow')
-        line = go.Scatter(x=bins/Fs*1000, y=sta_rescaled, line={'color':'black', 'width':3}, name='STA')
-        yaxis = go.Scatter(x=[0,0], y=[0,len(trigger)], showlegend=False, line={'color': 'black', 'dash':'dash','width':1})
-        if xtra_times is not None:
-            dots = [go.Scatter(x=(xtra_times-trigger)/Fs*1000, y=np.arange(N)+1,
-                               name='dots',
-                               mode='markers',
-                               marker=dict(size=4, color='white'),
-                               )]
-        else:
-            dots = []
-
-
-        layout = {'title':title,
-                  'xaxis':{'title': 'Times (ms)', 'range': [-rng[0]/Fs*1000, rng[1]/Fs*1000]},
-                  'yaxis': {'title': 'Trial', 'range': [1, N]},
-                }
-        fig = go.Figure(data=[heatmap, line, yaxis]+dots, layout=layout)
-
-        if getFig:
-            return fig
-        else:
-            plotfunc = pyo.iplot if in_notebook() else pyo.plot
-            plotfunc(fig)
-
-    return sta, bins, all_sta
 
 def conditionalHist(x,y, Nbins=50, std=True,
                     plot=False, xlbl='X', ylbl='Y', stats=None):
@@ -214,6 +234,7 @@ def conditionalHist(x,y, Nbins=50, std=True,
     else:
         return condHist, bins
 
+
 def autocorrelation(x, maxlag):
     """
     Autocorrelation with a maximum number of lags.
@@ -232,6 +253,7 @@ def autocorrelation(x, maxlag):
         shape=(maxlag + 1, len(x) + maxlag),
         strides=(-p.strides[0], p.strides[0]))
     return T.dot(p[maxlag:].conj())
+
 
 def crosscorrelation(x, y, lag=None, verbose=True):
     '''Compute lead-lag correlations between 2 time series.
@@ -303,6 +325,7 @@ def crosscorrelation(x, y, lag=None, verbose=True):
 
     return result
 
+
 def removeOutliers(data, stdbnd=6, percclip=[5,95], rmv=True):
     N = len(data)
     mean = np.mean(data)
@@ -343,8 +366,7 @@ def addJitter(data,std_ratio=.03):
     return data_out
 
 
-### Generic python helper functions. Not specifically neuroscience related
-
+####### Generic python helper functions. Not specifically neuroscience related ########
 def accum(accmap, a, func=None, size=None, fill_value=0, dtype=None):
     """
     An accumulation function similar to Matlab's `accumarray` function.
@@ -456,6 +478,7 @@ def _check_arg(x, xname):
     if x.ndim != 1:
         raise ValueError('%s must be one-dimensional.' % xname)
     return x
+
 
 def perc(x):
     return np.sum(x)/len(x)*100

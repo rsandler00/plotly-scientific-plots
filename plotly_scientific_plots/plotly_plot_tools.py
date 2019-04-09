@@ -7,13 +7,13 @@ import copy
 import plotly.offline as pyo
 import plotly.graph_objs as go
 import plotly as py
-from plotly.tools import make_subplots
 import colorlover as cl
 import plotly.figure_factory as ff
 
 # internal files
-from plotly_scientific_plots.plotly_misc import in_notebook, plotOut
+from plotly_scientific_plots.plotly_misc import in_notebook, plotOut, _massageData, _getCols
 from plotly_scientific_plots.misc_computational_tools import removeOutliers, removeNaN, norm_mat
+from plotly_scientific_plots.plot_subcomponents import *
 
 ###Scientific Plots
 def plotHist(data,              # 1D list/np vector of data
@@ -555,7 +555,7 @@ def basicBarPlot(data,          # list of #'s
                  title='',
                  ylbl='',
                  xlbl='',
-                 text=None,
+                 text=None,     # list of txt vals or 'numb' for numbers
                  orient=None,
                  sort=False,     # if True, sorts from greatest to least
                  line=None,     # add line perpendicular to bars (eg to show mean)
@@ -572,6 +572,9 @@ def basicBarPlot(data,          # list of #'s
         data = np.array(data)[ord]
         if names is not None:
             names = np.array(names)[ord]
+
+    if text == 'numb':
+        text = [str(x) for x in data]
 
     traces = [go.Bar(x=names, y=data, text=text, textposition='auto',
                     marker=dict(
@@ -801,8 +804,10 @@ def propBarPlot(data,           # list of 1D data vectors
 
 def multiLine(data,         # [N,Lx] numpy array or list, where rows are each line
               x=None,       # optional x-data
+              z=None,       # optional z (color) data
+              txt=None,     # optional txt over points
               lines=True,   # 1/0 whether we want to plot each of the individual lines
-              mean=True,    # True/False where want mean+std line
+              mean=False,    # True/False where want mean+std line
               names=None,   # names of each data list
               plot=True,    # if false, just returns plotly json object
               title='',     # title of plot
@@ -811,23 +816,49 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
               norm=None):   # input to norm_mat function if want to norm the data
     """
     Plots bunch of lines + mean in plotly
+
+    Ex: psp.multiLine(data, x=x, names=[], xlbl='', ylbl='', title='')
     """
 
-    data = np.array(data)
-    N, Lx = data.shape
+    data, x, z, names, info = _massageData(data, x=x, z=z, names=names)
+    N, Lx = info['n_sigs'], info['n_bins']
+    uniquex = not info['x_info']['shared']
 
     if norm is not None:
         data = norm_mat(data, method=norm)
-    if names is None: names = ['#%d' %(i) for i in range(N)]
-    if x is None: x=np.array(range(Lx))
-    x = np.atleast_2d(x)
-    uniquex=True if len(x)>1 else False     #whether same x for all y
+
+    if info['z_info']['provided']:
+        assert N==1, 'So far coloring only works w/ 1 data series'
+        cols = z
+        showleg = False
+        showscale = True
+        line_col = ['black']
+        line_mode = 'lines+markers'
+        scattertext = ['z=%d' % (i) for i in range(Lx)] if txt is None else txt
+    else:
+        if N>1:
+            showleg = False
+            cols = _getCols(N)
+        else:
+            showleg = True
+            cols=['blue']
+        line_col = cols
+        line_mode = 'lines'
+        showscale = False
+        if txt is None:
+            scattertext = ''
+        else:
+            scattertext = txt
 
     traces = []
     if lines:
-        lineplots = [go.Scatter(y=data[i], x=x[i*uniquex], name=names[i], line={'width': 1})
-             for i in range(N)]
-        traces += lineplots
+        for i in range(N):
+            traces += [go.Scatter(y=data[i], x=x[i*uniquex], name=names[i], line={'width': 1},
+                                  mode=line_mode, text=scattertext,
+                                  marker={'size': 2, 'color': cols[i], 'showscale': showscale,
+                                          'colorscale': 'Portland'}
+                                  )]
+
 
     if mean and not uniquex:
         mean = np.mean(data, axis=0)
@@ -839,7 +870,7 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
             fill='none',
             fillcolor='rgba(0,100,80,0.2)',
             mode='lines',
-            marker=dict(color="444"),
+            marker=dict(color='rgba(20,100,80,0)'),
             line=dict(width=0),
             showlegend=False,
             legendgroup='mean',
@@ -861,16 +892,15 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
         )
         traces = [plotmean, ploterror_top, ploterror_bottom] + traces
 
-    if isinstance(x[0][0], str):
-        xaxis = go.XAxis(
-            title=xlbl,
-            showgrid=True,
-            showticklabels=True,
-            # ticktext=['OFF', 'aDBS OFF', 'aDBS ON', 'Cont'],
-            tickvals=x[0],
-            tickfont=dict(size=18))
+    if info['x_info']['provided'] and isinstance(x[0][0], str):
+        xaxis = {   'title': xlbl,
+                    'showgrid': True,
+                    'showticklabels': True,
+                    'tickvals': x[0],
+                    'tickfont': dict(size=18)
+                 }
     else:
-        xaxis = go.XAxis(title=xlbl)
+        xaxis = {'title': xlbl}
 
     layout = go.Layout(title=title,
                        xaxis=xaxis,
@@ -1256,11 +1286,12 @@ def plotTable(data,
 
 
 def basicLinePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
-             x=None,
+             x=None,        # either [n_bins] array-like signal, or [n_signs, n_bins] signal
              title='',
              xlbl='',
              ylbl='',
              names=None,    # list of legend entries
+             show_leg = True,   # whether to show leg
              plot=True
              ):
     ''' Plots a basic line. No frills (yet)'''
@@ -1269,10 +1300,8 @@ def basicLinePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
     [n_sigs, n_bins] = y.shape
 
     if names == None:
-        show_leg = False
-        names = [None] * n_sigs
-    else:
-        show_leg = True
+        names = ['S_%d' % (n+1) for n in range(n_sigs)]
+
 
     traces = []
     for n, sig in enumerate(y):
@@ -1308,153 +1337,6 @@ def basicHeatmap(z,
 
     return plotOut(fig, plot)
 
-
-## Plotly plot subcomponents
-def makeEventLines(times,   # 1d array of timestamps
-                   orientation='v', # 'v' or 'h'
-                   labels=None, # optional 1d numeric array of event type indices
-                   labelmap=None, # optional labelmap in list form, eg: ['car', 'truck']
-                   rng=None     # optional filter range for timestamps
-                   ):
-
-    # preprocess data
-    times = np.array(times)
-
-    # filter labels for relevant timerange
-    if rng is not None:
-        filt_indxs = (times >= rng[0]) & (times < rng[1])
-        times = times[filt_indxs]
-        if labels is not None:
-            labels = labels[filt_indxs]
-
-    n_events = times.size
-
-    # generate colors
-    if labels is not None:
-        if labelmap is None:
-            labelmap =  [str(x) for x in np.unique(labels)]
-        n_types = len(labelmap)
-        cols = cl.scales[str(max(3, n_types))]['qual']['Set2']
-    else:
-        labels = np.zeros(n_events)
-        cols = ['red']
-
-    # create line shapes
-    lines = []
-    for i in range(n_events):
-        lines += [abs_line(times[i], orientation, color=cols[labels[i]])]
-
-    return lines
-
-def abs_line(position, orientation, color='red', width=3, annotation=None):
-    '''
-    Creates an absolute line which appears irregardless of panning.
-    To use, add output to layout shapes:
-        layout.shapes = [hline(line)]
-    '''
-
-    if orientation == 'v':
-        big = 'x'
-        lil = 'y'
-    elif orientation == 'h':
-        big = 'y'
-        lil = 'x'
-    else:
-        print('ERROR: orientation must be either "v" or "h"')
-
-    shape = {
-        'type': 'line',
-        big+'ref': big,
-        lil+'ref': 'paper',
-        big+'0': position,
-        big+'1': position,
-        lil+'0': 0,
-        lil+'1': 1,
-        'line': {
-            'color': color,
-            'width': width,
-        },
-    }
-
-    return shape
-
-
-def vline(position, **params):
-    ''' Creates vertical line shape'''
-    return abs_line(position, orientation='v', **params)
-
-
-def hline(position, **params):
-    ''' Creates horizontal line shape'''
-    out = abs_line(position, orientation='h', **params)
-    return out
-
-
-def addRect(start, end, orientation='V', color='#ff0000', opacity=0.1):
-    ''' This makes a rectangluar background from start til end with shaded color. Useful for highlighting things in plots'''
-    if orientation == 'V':
-        xref = 'x'
-        yref = 'paper'
-        x0 = start
-        x1 = end
-        y0 = 0
-        y1 = 1
-    elif orientation == 'H':
-        yref = 'y'
-        xref = 'paper'
-        y0 = start
-        y1 = end
-        x0 = 0
-        x1 = 1
-    else:
-        raise ValueError('Orientation must be either "H" or "V". You input %s' % str(orientation))
-
-    return {
-        'type': 'rect',
-        'xref': xref,
-        'yref': yref,
-        'x0': x0,
-        'y0': y0,
-        'x1': x1,
-        'y1': y1,
-        'fillcolor': color,
-        'opacity': opacity,
-        'line': {
-            'width': 0,
-        }
-    }
-
-
-def _plotSubplots(trace_array,
-                  vert_spacing=.1,
-                  title = '',
-                  ylbl='',  # currently buggy
-                  xlbl='',
-                  plot=True
-                  ):
-    '''
-    Internal function to make subplots based on passed traces, which are in a 2d np array
-    '''
-    n_rows, n_cols = trace_array.shape
-
-    fig = make_subplots(rows=n_rows,
-                        cols=n_cols,
-                        shared_xaxes=True,
-                        vertical_spacing=vert_spacing,
-                        subplot_titles=('Acoustic', 'Magnetic', 'Seismic', 'Predictions'),
-                        )
-
-    for r in range(n_rows-1, -1, -1):   # (start from bottom so x-axis is on bottom plot)
-        for c in range(n_cols-1, -1, -1):
-            [fig.append_trace(trace, r+1, c+1) for trace in trace_array[r,c]]
-
-
-    fig.layout.title = title
-    fig.layout.xaxis = {'title': xlbl}
-    #fig.layout.yaxis = {'title': ylbl}
-    fig.layout.showlegend = True
-
-    return plotOut(fig, plot)
 
 
 if __name__ == '__main__':

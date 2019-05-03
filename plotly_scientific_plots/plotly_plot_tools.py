@@ -707,8 +707,11 @@ def barPlot(data,           # list of 1D data vectors
     # stats
     statvals = []
     if 'MW' in stats and N==2:
-        stat, pval = sp.stats.mannwhitneyu(data[0], data[1], alternative='two-sided')
-        statvals += [['MW', pval]]
+        try:
+            stat, pval = sp.stats.mannwhitneyu(data[0], data[1], alternative='two-sided')
+            statvals += [['MW', pval]]
+        except:
+            print('Could not process MW stats')
     if 'ttest' in stats and N==2:
         stat, pval = sp.stats.ttest_ind(data[0], data[1])
         statvals += [['T-test', pval]]

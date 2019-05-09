@@ -90,6 +90,7 @@ def startDashboardSerial(figs,
                         min_width = 18,  # min width of column (in %). If more columns, scrolling is enabled
                         max_width = 50,  # max width of column (in %).
                         indiv_widths = None,
+                        host = None,    # set to '0.0.0.0' to run as a server. Default val is None (localhost)
                         port = 8050
                   ):
     """
@@ -114,7 +115,7 @@ def startDashboardSerial(figs,
 
     app = dash.Dash()
     app.layout = dashSubplot(graphs, min_width, max_width, indiv_widths)
-    app.run_server(port=port, debug=False)
+    app.run_server(port=port, debug=False, host=host)
 
     return None
 

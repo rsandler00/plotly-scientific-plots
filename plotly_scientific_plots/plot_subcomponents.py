@@ -145,7 +145,7 @@ def _plotSubplots(trace_array,
                         cols=n_cols,
                         shared_xaxes=True,
                         vertical_spacing=vert_spacing,
-                        subplot_titles=sp_titles.flatten(),
+                        subplot_titles=sp_titles.flatten().tolist(),
                         )
 
     for r in range(n_rows):

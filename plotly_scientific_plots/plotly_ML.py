@@ -131,6 +131,7 @@ def plotMultiPR(y_true,        # list of true labels
 
 def plotConfusionMatrix(y_true, # list of true labels
                         y_pred, # list of predicted labels
+                        conf_matrix = None, # optional mode to directly provide confusion matrix
                         title = 'Confusion Matrix',
                         labels = None, # list of labels for each class
                         binarized = None, # if int/str then makes 1vsAll confusion matrix of that class
@@ -141,6 +142,8 @@ def plotConfusionMatrix(y_true, # list of true labels
                 ):
     """
     Plots either a full or binarized confusion matrix
+
+    EX: plotConfusionMatrix(y_true, y_pred, labels)
     """
 
     n_classes = len(labels) if labels is not None else len(np.unique(y_true))
@@ -148,7 +151,10 @@ def plotConfusionMatrix(y_true, # list of true labels
     if labels is None:
         labels = ['C%d' % n for n in range(1, n_classes+1)]
 
-    conf_matrix = sk.metrics.confusion_matrix(y_true, y_pred, labels=range(n_classes))
+    if conf_matrix == None:
+        conf_matrix = sk.metrics.confusion_matrix(y_true, y_pred, labels=range(n_classes))
+
+    acc = np.diag(conf_matrix).sum() / np.sum(conf_matrix) * 100
 
     if binarized is not None:
         # identify index of 1vsAll category
@@ -209,7 +215,7 @@ def plotConfusionMatrix(y_true, # list of true labels
 
     # Adjust Total rows
     if add_totals:
-        totals_row_shading = .97    # range 0 to 1. 0=darkest, 1=lightest
+        totals_row_shading = .0    # range 0 to 1. 0=darkest, 1=lightest
         tot_val = np.min(norm_conf_matrix) + (np.max(norm_conf_matrix) - np.min(norm_conf_matrix))*totals_row_shading
         color_mat[-1, :] = tot_val
         color_mat[:, -1] = tot_val
@@ -218,8 +224,6 @@ def plotConfusionMatrix(y_true, # list of true labels
         htext = np.hstack((np.vstack((htext, pred_tot_text)), true_tot_text))
 
     fig = ff.create_annotated_heatmap(color_mat, x=num_labels, y=num_labels, colorscale='Greys', annotation_text=conf_matrix_tots)
-
-    acc = perc(np.squeeze(y_true) == np.squeeze(y_pred))
 
     fig.layout.yaxis.title = 'True'
     fig.layout.xaxis.title = 'Predicted (Total accuracy = %.3f%%)' % acc
@@ -260,11 +264,11 @@ def plotConfusionMatrix(y_true, # list of true labels
         last_column_indxs = [(n + 1) * x - 1 for x in range(1, n + 1)]
         last_row_indxs = list(range((n + 1) * (n), (n + 1) ** 2))
         totals_annot_indxs = last_row_indxs + last_column_indxs
-        # adjust font
+        # adjust totals font size & color
         for i in totals_annot_indxs:
             fig['layout']['annotations'][i]['font'] = dict(size=fontsize, color='#000099')
 
-         # Add border lines for total row/col
+        # Add border lines for total row/col
         data = list(fig['data'])
         data += [go.Scatter(x=[n_classes - .5, n_classes - .5], y=[-.5, n_classes + .5], showlegend=False,
                             hoverinfo='none', line=dict(color='red', width=4, dash='solid'))]

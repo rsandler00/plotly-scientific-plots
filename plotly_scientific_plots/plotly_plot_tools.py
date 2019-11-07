@@ -1,7 +1,8 @@
+import copy
+from itertools import compress
 import numpy as np
 import scipy as sp
 import scipy.stats
-import copy
 
 #plotting
 import plotly.offline as pyo
@@ -37,7 +38,6 @@ def plotHist(data,              # 1D list/np vector of data
     :return: NA
     """
 
-    N = len(data)
     data = np.array(data)
 
     # remove NaNs/Infs
@@ -46,6 +46,8 @@ def plotHist(data,              # 1D list/np vector of data
         data = data[np.isfinite(data)]
     except:
         print('Failed to do NaN removal')
+
+    N = len(data)
 
     adj, corr_data, outliers, rng, stats = removeOutliers(data, stdbnd=6, percclip=[5, 95], rmv=rm_outliers)
 
@@ -335,19 +337,10 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
     #TODO: remove outliers
 
     # 1st convert t ndarray
-
-
-    # 1st convert t ndarray
-    if type(x) != np.ndarray:  x = np.array(x)
-    if type(y) != np.ndarray:  y = np.array(y)
-
-    # (1) get N
-    if np.issubdtype(x.dtype, np.number):  # given an np array
-        x = np.atleast_2d(x)
-        y = np.atleast_2d(y)
-        N, Lx = x.shape
-    else:  # given a data array
-        N = len(x)
+    y, x, z, names, info = _massageData(y, x=x, z=z, names=names, txt=text)
+    assert info['x_info']['shared'], 'All x & y vectors must be same length!!!'
+    N = info['n_sigs']
+    Lx = np.atleast_1d(info['n_bins'])
 
     # (2) remove NaNs
     tmpx, tmpy = [], []
@@ -358,30 +351,14 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
     x = np.array(tmpx)
     y = np.array(tmpy)
 
-    # (3) get Lx
-    if np.issubdtype(x.dtype, np.number):  # given an np array
-        N, Lx = x.shape
-        Lx = np.tile(Lx, N)
-    else:  # given a data array
-        Lx = [len(l) for l in x]
-        Ly = [len(l) for l in y]
-        if Lx != Ly: raise ValueError('All x & y vectors must be same length!!!')
-
     # if data has too many points, remove some for speed
     Iplot = [np.arange(Lx[n]) if Lx[n] < maxdata else np.random.choice(Lx[n], size=maxdata, replace=False) for n in range(N)]
-
-    if names is None:
-        names = ['Line ' + str(i) for i in range(N)]
-    if isinstance(names, str):
-        names = [names]
 
     traces = []
 
     # determine scatterpoint colors
     if z is not None:
         assert N==1, 'So far coloring only works w/ 1 data series'
-        if type(z) != np.ndarray:  z = np.array(z)
-        z = np.atleast_2d(z)
         cols = z
         showleg = False
         showscale = True
@@ -551,40 +528,58 @@ def scatterHistoPlot(x,
     return plotOut(fig, plot)
 
 def basicBarPlot(data,          # list of #'s
-                 names=None,    # xtick labels. Can be numeric or str
+                 x=None,        # xtick labels. Can be numeric or str
+                 names=None,    # series labels
                  title='',
                  ylbl='',
                  xlbl='',
                  text=None,     # list of txt vals or 'numb' for numbers
-                 orient=None,
                  sort=False,     # if True, sorts from greatest to least
                  line=None,     # add line perpendicular to bars (eg to show mean)
-                 color='rgb(158,202,225)',  # barplot internal color
+                 color=None,  # barplot internal color
                  width=None,    # plot width. If None, autoscales
                  plot=True):
     """
-    Makes a basic bar plot where data is [n,1] list of values. No averaging/etc... For that see barPlot or propBarPlot
+    Makes a basic bar plot where data is either:
+        1. [n,1] list of values.
+        2. nested list of values e.g. [[1,2,3], [3,4,5]]
+        3. [Lx, N] np array
+
+    No averaging/etc... For that see barPlot or propBarPlot
+
     EX: psp.basicBarPlot([1,2,3,2])
     """
 
+    data, x, z, names, info = _massageData(data, x=x, names=names)
+    n_sigs = info['n_sigs']
+    uniquex = not info['x_info']['shared']
+
+    if color is None and n_sigs == 1:
+        color = 'rgb(8,48,107)'
+
     if sort:
+        assert n_sigs == 1, 'Sort only works w/ a single signal'
         ord = np.argsort(data)[::-1]
-        data = np.array(data)[ord]
-        if names is not None:
-            names = np.array(names)[ord]
+        data = data[0, ord]
+        if x is not None:
+            x = x[0, ord]
 
     if text == 'numb':
-        text = [str(x) for x in data]
+        text = [[str(x) for x in sig] for sig in data]
+    else:
+        text = [None] *  n_sigs
 
-    traces = [go.Bar(x=names, y=data, text=text, textposition='auto',
-                    marker=dict(
-                        color=color,
-                        line=dict(
-                            color='rgb(8,48,107)',
-                            width=1.5),
-                    ),
-                    opacity=0.6)
-              ]
+    traces = []
+    for i in range(n_sigs):
+        traces += [go.Bar(x=x[i*uniquex], y=data[i], text=text[i], textposition='auto', name=names[i],
+                        marker=dict(
+                            color=color,
+                            line=dict(
+                                color=color,
+                                width=1.5),
+                        ),
+                        opacity=0.6)
+                  ]
 
     layout = go.Layout(
             title=title,
@@ -616,10 +611,17 @@ def barPlot(data,           # list of 1D data vectors
     # TODO: add outlier removal
 
     data = np.array(data)
-    N = len(data)
-    Lx = [len(col) for col in data]
+
     # remove NaNs
     data = [removeNaN(col) for col in data]
+
+    # remove any empty data columns
+    empty_cols = [len(d) > 0 for d in data]
+    data = list(compress(data, empty_cols))
+    names = list(compress(names, empty_cols))
+
+    N = len(data)
+    Lx = [len(col) for col in data]
 
     if names is None:
         names = [str(i + 1) for i in range(N)]
@@ -737,26 +739,28 @@ def barPlot(data,           # list of 1D data vectors
     return plotOut(fig, plot)
 
 
-def propBarPlot(data,           # list of 1D data vectors
+def propBarPlot(data,           # list of 1D boolean data vectors
             names=None,     # names of data vectors
             title=' ',      # title of plot
             ylbl='Proportion',    # y-label\
             plot=True):
     """
-        Makes a custom plotly proportion barplot
-        :return:
-        """
+    Makes a custom plotly proportion barplot
+
+    Ex:
+    propBarPlot(data, names=None, title='Proportion ...',  ylbl='Proportion')
+
+    """
     data = np.array(data)
     N = len(data)
     Lx = [len(col) for col in data]
-    print(Lx)
 
     if names is None:
         names = [str(i + 1) for i in range(N)]
     if N >= 3:
-        cols = cl.scales[str(N)]['qual']['Set1']
+        cols = cl.scales[str(N)]['qual']['Set3']
     else:
-        cols = cl.scales[str(3)]['qual']['Set1'][0:N]
+        cols = cl.scales[str(3)]['qual']['Set3'][0:N]
     jitter = .03
 
     means = [np.mean(col) for col in data]
@@ -816,7 +820,9 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
               title='',     # title of plot
               ylbl='',      #
               xlbl='',      #
-              norm=None):   # input to norm_mat function if want to norm the data
+              norm=None,    # input to norm_mat function if want to norm the data
+              line_mode='lines' # 'lines'/'markers'/'lines+markers'
+              ):
     """
     Plots bunch of lines + mean in plotly
 
@@ -835,8 +841,8 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
         cols = z
         showleg = False
         showscale = True
-        line_col = ['black']
         line_mode = 'lines+markers'
+        markersize = 2
         scattertext = ['z=%d' % (i) for i in range(Lx)] if txt is None else txt
     else:
         if N>1:
@@ -845,9 +851,8 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
         else:
             showleg = True
             cols=['blue']
-        line_col = cols
-        line_mode = 'lines'
         showscale = False
+        markersize = 6
         if txt is None:
             scattertext = ''
         else:
@@ -858,7 +863,7 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
         for i in range(N):
             traces += [go.Scatter(y=data[i], x=x[i*uniquex], name=names[i], line={'width': 1},
                                   mode=line_mode, text=scattertext,
-                                  marker={'size': 2, 'color': cols[i], 'showscale': showscale,
+                                  marker={'size': markersize, 'color': cols[i], 'showscale': showscale,
                                           'colorscale': 'Portland'}
                                   )]
 
@@ -916,7 +921,7 @@ def multiLine(data,         # [N,Lx] numpy array or list, where rows are each li
 
 def multiMean(data,
               x=None,
-              std=True,
+              plot_std=True,
               names=None,
               plot=True,
               title='',
@@ -929,7 +934,7 @@ def multiMean(data,
     Plots means of multiple data matrices
     :param data: list of data matrices
     :param x: optional x-data
-    :param std: 1/0. If 1 plots shaded std deviation around mean
+    :param plot_std: 1/0. If 1 plots shaded std deviation around mean
     :param names: names of data
     :param plot: if false, just returns plotly json object
     :param title: title of plot
@@ -959,33 +964,35 @@ def multiMean(data,
         mean = np.mean(data[n], axis=0)
         std = np.std(data[n], axis=0)
         plotmean = go.Scatter(x=x[0], y=mean, name=names[n], legendgroup=names[n], line={'width': 4, 'color': cols[n]})
-        ploterror_top = go.Scatter(
-            x=x[0],
-            y=mean + std,
-            fill='none',
-            fillcolor=tcols[n],
-            mode='lines',
-            marker=dict(color=tcols[n]),
-            line=dict(width=0),
-            showlegend=False,
-            legendgroup=names[n],
-            name=names[n] + ' UB',
-            opacity=.7,
-        )
-        ploterror_bottom = go.Scatter(
-            x=x[0],
-            y=mean - std,
-            fill='tonexty',
-            fillcolor=tcols[n],
-            mode='lines',
-            marker=dict(color=tcols[n]),
-            line=dict(width=0),
-            showlegend=False,
-            legendgroup=names[n],
-            name=names[n] + ' LB',
-            opacity=.7,
-        )
-        traces += [plotmean, ploterror_top, ploterror_bottom]
+        traces += [plotmean]
+        if plot_std:
+            ploterror_top = go.Scatter(
+                x=x[0],
+                y=mean + std,
+                fill='none',
+                fillcolor=tcols[n],
+                mode='lines',
+                marker=dict(color=tcols[n]),
+                line=dict(width=0),
+                showlegend=False,
+                legendgroup=names[n],
+                name=names[n] + ' UB',
+                opacity=.7,
+            )
+            ploterror_bottom = go.Scatter(
+                x=x[0],
+                y=mean - std,
+                fill='tonexty',
+                fillcolor=tcols[n],
+                mode='lines',
+                marker=dict(color=tcols[n]),
+                line=dict(width=0),
+                showlegend=False,
+                legendgroup=names[n],
+                name=names[n] + ' LB',
+                opacity=.7,
+            )
+            traces += [ploterror_top, ploterror_bottom]
         if indiv and Ncol[n]>1:
             inames = ['']*Ncol[n] if indivnames is None else indivnames
             indivlines = [go.Scatter(x=x[0], y=l, showlegend=c==0, name=names[n] + ' |', legendgroup=names[n] + ' |',
@@ -1017,7 +1024,7 @@ def plotHist2D(x,           # 1D vector
     """
     plots 2D heatmap. Does the binning in np as its faster than plotly 2D hist
     """
-    x = np.array(x);
+    x = np.array(x)
     y = np.array(y)
     maxstd = 8  # if max above this many stddevs from mean, it is clipped
     percclip = [5, 95]  # percentile above which it is clipped
@@ -1043,15 +1050,13 @@ def plotHist2D(x,           # 1D vector
         y=yedges,  # sample to be binned on of the y-axis
         z=H,
         name='Heatmap',
-        showlegend=True,
         zsmooth='best',  # (!) apply smoothing to contours
         colorscale='Portland',  # choose a pre-defined color scale
-        colorbar=go.ColorBar(
-            titleside='right',  # put title right of colorbar
-            ticks='outside',  # put ticks outside colorbar
-            title=zlbl,
+        colorbar={'titleside': 'right',  # put title right of colorbar
+                    'ticks': 'outside',  # put ticks outside colorbar
+                    'title': zlbl}
         )
-    )
+
     plots=[hist]
 
     # plotting trendline
@@ -1273,9 +1278,19 @@ def plotTable(data,
     if type(data)==pd.core.frame.DataFrame:
         top_headers = data.columns
         tbl_data = data.values
+    else:
+        tbl_data = data
 
-    # TODO: this should only be done for numeric datatypes
-    tbl_data = tbl_data.astype('|S7').astype(str)
+    n_rows, n_cols = tbl_data.shape
+
+    # Shorten floats to reasonable length
+    def format_func(x):
+        try:
+            return '%.3f' % float(x)
+        except:
+            return x
+    vfunc = np.vectorize(format_func)
+    tbl_data = vfunc(tbl_data)
 
     inp_data = np.vstack((top_headers, tbl_data))
 
@@ -1304,7 +1319,6 @@ def basicLinePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
 
     if names == None:
         names = ['S_%d' % (n+1) for n in range(n_sigs)]
-
 
     traces = []
     for n, sig in enumerate(y):

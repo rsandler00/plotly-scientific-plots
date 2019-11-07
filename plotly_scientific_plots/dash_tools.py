@@ -129,7 +129,7 @@ def startDashboard(figs,
     figs_dictform = jsonify(figs)
 
     # save if nessesary (currently only saves in pkl format)
-    if save is not None:
+    if save is not None and not False:
         # Note, can also use _dump_json, but its about 3x bigger filesize
         _dump_pkl(figs_dictform, save)
 

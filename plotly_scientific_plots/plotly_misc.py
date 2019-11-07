@@ -106,7 +106,7 @@ def _massageData(y,
         [n_sig] np array where each entry a full array (if signals unequal length)
     '''
 
-    y = np.array(y)
+    y = np.atleast_2d(np.array(y))
 
     if y.dtype == 'O':  # arrays are not equally size
         equal_size = False
@@ -157,7 +157,9 @@ def _massageDataCorrelate(n_sigs, n_bins, equal_size, required, data):
                 assert len(data[i]) == n_bins[i], 'For signal %d, len(y)=%d != len(data)=%d' % (i, n_bins[i], len(data[i]))
         else:
             data = np.atleast_2d(data)
-            if data.shape[1] == 1 and n_sigs > 1:
+            if 1 in data.shape and n_sigs == 1: # data is a vector
+                if data.shape[1] == 1:  # make sure 1d vectors are shape [N, 1]
+                    data = data.T
                 shared = True
                 assert data.shape[1] == n_bins, 'len(y)=%d != len(data)=%d' % (n_bins, data.shape[1])
             else:
@@ -169,10 +171,13 @@ def _massageDataCorrelate(n_sigs, n_bins, equal_size, required, data):
     return data, info
 
 
-def _getCols(n_cols, set='Set3'):
+def _getCols(n_cols, set='Dark2'):  # use 'Set3' for max amount of colors
     '''  '''
-    if str(n_cols) in cl.scales and set in cl.scales[str(n_cols)]['qual']:
+    if n_cols < 3:
+        return cl.scales['3']['qual']['Dark2'][:n_cols]
+    elif str(n_cols) in cl.scales and set in cl.scales[str(n_cols)]['qual']:
         return  cl.scales[str(max(3, n_cols))]['qual'][set]
     else:   # if n_cols larger than amount of cols in the set, then cycle from the beginning
-        max_set_cols = max([i for i in range(3,min(13,n_cols)) if set in cl.scales[str(i)]['qual']])
+        max_set_cols = max([i for i in range(3, min(13,n_cols)) if set in cl.scales[str(i)]['qual']])
         return [cl.scales[str(max_set_cols)]['qual'][set][(i+1) % max_set_cols] for i in range(n_cols)]
+

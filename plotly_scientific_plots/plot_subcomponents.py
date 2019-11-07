@@ -2,7 +2,7 @@ import numpy as np
 
 #plotting
 import plotly.graph_objs as go
-from plotly.tools import make_subplots
+from plotly.subplots import make_subplots
 
 import colorlover as cl
 

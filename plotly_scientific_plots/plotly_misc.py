@@ -157,7 +157,9 @@ def _massageDataCorrelate(n_sigs, n_bins, equal_size, required, data):
                 assert len(data[i]) == n_bins[i], 'For signal %d, len(y)=%d != len(data)=%d' % (i, n_bins[i], len(data[i]))
         else:
             data = np.atleast_2d(data)
-            if 1 in data.shape and n_sigs == 1: # data is a vector
+            if 1 in data.shape: # data is a vector
+            # PREVIOUSLY WAS: if 1 in data.shape and n_sigs == 1:
+            # NOTE: removed & n_sigs==1 on 11/26/19 since if provided x, it can be shared between multiple y's
                 if data.shape[1] == 1:  # make sure 1d vectors are shape [N, 1]
                     data = data.T
                 shared = True

@@ -12,7 +12,7 @@ import colorlover as cl
 import plotly.figure_factory as ff
 
 # internal files
-from plotly_scientific_plots.plotly_misc import in_notebook, plotOut, _massageData, _getCols
+from plotly_scientific_plots.plotly_misc import in_notebook, plotOut, _massageData, _getCols, _extend_range
 from plotly_scientific_plots.misc_computational_tools import removeOutliers, removeNaN, norm_mat
 from plotly_scientific_plots.plot_subcomponents import *
 
@@ -136,7 +136,7 @@ def plot2Hists(x1,              # data of 1st histogram
     adj2, corr_data2, outliers2, rng2, stats2 = removeOutliers(x2, stdbnd=6, percclip=[5, 95], rmv=rm_outliers)
 
     if samebins:
-        jointrng = [min(rng1[0], rng2[0]), max(rng1[1], rng2[1])]
+        jointrng = _extend_range(min(rng1[0], rng2[0]), max(rng1[1], rng2[1]), .05)
         bins=np.linspace(jointrng[0], jointrng[1], numbins)
     else:
         bins=numbins
@@ -194,7 +194,7 @@ def plot2Hists(x1,              # data of 1st histogram
         stat, p_KS = sp.stats.ks_2samp(x1, x2)
         title += ' P_KS=%.3f' % (p_KS)
 
-    plotrng = [min(rng1[0], rng2[0])*.9, min(rng1[1], rng2[1])*1.1]
+    plotrng = _extend_range(min(rng1[0], rng2[0]), max(rng1[1], rng2[1]), .05)
     ylbl = 'Denisty' if normHist else 'Count'
     fig = go.Figure(data=traces,
                     layout={'title': title,
@@ -342,6 +342,10 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
     N = info['n_sigs']
     Lx = np.atleast_1d(info['n_bins'])
 
+    # if data has too many points, remove some for speed
+    Iplot = [np.arange(Lx[n]) if Lx[n] < maxdata else np.random.choice(Lx[n], size=maxdata, replace=False)
+             for n in range(N)]
+
     # (2) remove NaNs
     tmpx, tmpy = [], []
     for n in range(N):
@@ -351,13 +355,11 @@ def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
     x = np.array(tmpx)
     y = np.array(tmpy)
 
-    # if data has too many points, remove some for speed
-    Iplot = [np.arange(Lx[n]) if Lx[n] < maxdata else np.random.choice(Lx[n], size=maxdata, replace=False) for n in range(N)]
 
     traces = []
 
     # determine scatterpoint colors
-    if z is not None:
+    if info['z_info']['provided'] is True:
         assert N==1, 'So far coloring only works w/ 1 data series'
         cols = z
         showleg = False
@@ -527,7 +529,7 @@ def scatterHistoPlot(x,
 
     return plotOut(fig, plot)
 
-def basicBarPlot(data,          # list of #'s
+def basicBarPlot(data,          # See docstring
                  x=None,        # xtick labels. Can be numeric or str
                  names=None,    # series labels
                  title='',
@@ -1309,7 +1311,7 @@ def basicLinePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
              xlbl='',
              ylbl='',
              names=None,    # list of legend entries
-             show_leg = True,   # whether to show leg
+             show_leg=True,   # whether to show leg
              plot=True
              ):
     ''' Plots a basic line. No frills (yet)'''
@@ -1322,7 +1324,7 @@ def basicLinePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
 
     traces = []
     for n, sig in enumerate(y):
-        traces += [go.Scatter(y=sig, x=x, name=names[n])]
+        traces += [go.Scatter(y=sig, x=x, name=names[n], opacity=.8)]
 
     layout = go.Layout(title=title,
                        xaxis={'title': xlbl},

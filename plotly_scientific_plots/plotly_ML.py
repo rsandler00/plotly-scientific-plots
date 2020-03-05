@@ -30,9 +30,13 @@ def plotMultiROC(y_true,        # list of true labels
 
     y_true = np.array(y_true)
     y_scores = np.array(y_scores)
+    if y_scores.ndim == 1:  # convert to [n_samples, n_classes] even if 1 class
+        y_scores = np.atleast_2d(y_scores).T
     N, n_classes = y_scores.shape
     if n_classes == 1:  # needed to avoid inverting when doing binary classification
-        y_scores = -1*y_scores
+        y_scores *= -1
+        if threshdot is not None:
+            threshdot *= -1
 
     # calc ROC curves & AUC
     fpr = dict()
@@ -44,6 +48,9 @@ def plotMultiROC(y_true,        # list of true labels
         fpr[i], tpr[i], thresh[i] = sk.metrics.roc_curve(y_true == i, y_scores[:, i])
         roc_auc[i] = sk.metrics.auc(fpr[i], tpr[i])
         thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
+
+    if labels is None:
+        labels = ['C%d' % n for n in range(1, n_classes+1)]
 
     labels = [str(x) for x in labels]  # convert labels to str
 
@@ -102,6 +109,9 @@ def plotMultiPR(y_true,        # list of true labels
         #pr_auc[i] = sk.metrics.auc(precision[i], recall[i])
         pr_auc[i] = 1
         thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
+
+    if labels is None:
+        labels = ['C%d' % n for n in range(1, n_classes+1)]
 
     labels = [str(x) for x in labels]  # convert to str
 

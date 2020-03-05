@@ -100,8 +100,6 @@ def startDashboardSerial(figs,
     :return:
     """
 
-
-
     # convert plotly fig objects to dash graph objects
     graphs = []
     for c_num, col in enumerate(figs):

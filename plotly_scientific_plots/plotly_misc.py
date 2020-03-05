@@ -183,3 +183,11 @@ def _getCols(n_cols, set='Dark2'):  # use 'Set3' for max amount of colors
         max_set_cols = max([i for i in range(3, min(13,n_cols)) if set in cl.scales[str(i)]['qual']])
         return [cl.scales[str(max_set_cols)]['qual'][set][(i+1) % max_set_cols] for i in range(n_cols)]
 
+
+def _extend_range(minn, maxx, extend_ratio):
+    ''' Extends rng for plotting. Takes care of subtelies of pos/neg #s '''
+    span = maxx - minn
+    extend_span = span * extend_ratio
+    minn -= extend_span
+    maxx += extend_span
+    return minn, maxx

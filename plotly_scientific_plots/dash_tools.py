@@ -14,6 +14,7 @@ def dashSubplot(plots,
                 min_width=18,  # min width of column (in %). If more columns, scrolling is enabled
                 max_width=50,  # max width of column (in %).
                 indiv_widths=None,  # can specify list of individual column widths
+                title=''
                 ):
 
     # remove empty elements of list
@@ -37,12 +38,10 @@ def dashSubplot(plots,
              'vertical-align': 'top',
              'margin-right': '25px'} for i in range(Ncol)]
 
-    layout = html.Div(
-        [html.Div(plots[i], style=col_style[i]) for i in range(Ncol)],
-        style = {'margin-right': '0px',
-                 'position': 'absolute',
-                 'width': '100%'}
-    )
+    plot_divs = html.Div([html.Div(plots[i], style=col_style[i]) for i in range(Ncol)])
+    title_div = html.H3(title)
+    layout = html.Div(html.Div([title_div, plot_divs]),
+                      style={'margin-right': '0px', 'position': 'absolute', 'width': '100%'})
 
     return layout
 
@@ -91,6 +90,7 @@ def startDashboardSerial(figs,
                         max_width = 50,  # max width of column (in %).
                         indiv_widths = None,
                         host = None,    # set to '0.0.0.0' to run as a server. Default val is None (localhost)
+                        title = '',
                         port = 8050
                   ):
     """
@@ -112,7 +112,7 @@ def startDashboardSerial(figs,
         graphs += [g_col]
 
     app = dash.Dash()
-    app.layout = dashSubplot(graphs, min_width, max_width, indiv_widths)
+    app.layout = dashSubplot(graphs, min_width, max_width, indiv_widths, title)
     app.run_server(port=port, debug=False, host=host)
 
     return None

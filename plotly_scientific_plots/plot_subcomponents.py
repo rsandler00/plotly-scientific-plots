@@ -154,7 +154,7 @@ def _plotSubplots(trace_array,
 
 
     fig.layout.title = title
-    fig.layout.xaxis = {'title': xlbl, 'position': 0}
+    # fig.layout.xaxis = {'title': xlbl}    # this ruins the shared x-axis for some reason
     #fig.layout.yaxis = {'title': ylbl}
     fig.layout.showlegend = True
 

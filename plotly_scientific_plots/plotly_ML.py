@@ -20,12 +20,13 @@ perc = lambda x: np.sum(x)/len(x)*100
 def plotMultiROC(y_true,        # list of true labels
                     y_scores,   # array of scores for each class of shape [n_samples, n_classes]
                     title = 'Multiclass ROC Plot',
+                    n_points=100,  # reinterpolates to have exactly N points
                     labels = None, # list of labels for each class
                     threshdot = None,
                     plot=True,  # 1/0. If 0, returns plotly json object, but doesnt plot
                 ):
     """
-    Makes a multiclass ROC plot
+    Makes a multiclass ROC plot. Can also be used for binary ROC plot
     """
 
     y_true = np.array(y_true)
@@ -47,6 +48,12 @@ def plotMultiROC(y_true,        # list of true labels
     for i in range(n_classes):
         fpr[i], tpr[i], thresh[i] = sk.metrics.roc_curve(y_true == i, y_scores[:, i])
         roc_auc[i] = sk.metrics.auc(fpr[i], tpr[i])
+        if n_points is not None:
+            x = np.linspace(0, 1, n_points)
+            indxs = np.searchsorted(tpr[i], x)
+            tpr[i] = tpr[i][indxs]
+            fpr[i] = fpr[i][indxs]
+            thresh[i] = thresh[i][indxs]
         thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
 
     if labels is None:
@@ -83,6 +90,7 @@ def plotMultiROC(y_true,        # list of true labels
 def plotMultiPR(y_true,        # list of true labels
                     y_scores,   # array of scores for each class of shape [n_samples, n_classes]
                     title = 'Multiclass PR Plot',
+                    n_points=100,  # reinterpolates to have exactly N points
                     labels = None, # list of labels for each class
                     threshdot=None, # whether to plot a dot @ the threshold
                     plot=True,  # 1/0. If 0, returns plotly json object, but doesnt plot
@@ -93,6 +101,8 @@ def plotMultiPR(y_true,        # list of true labels
 
     y_true = np.array(y_true)
     y_scores = np.array(y_scores)
+    if y_scores.ndim == 1:  # convert to [n_samples, n_classes] even if 1 class
+        y_scores = np.atleast_2d(y_scores).T
     N, n_classes = y_scores.shape
     if n_classes == 1:  # needed to avoid inverting when doing binary classification
         y_scores = -1*y_scores
@@ -108,6 +118,12 @@ def plotMultiPR(y_true,        # list of true labels
         #average_precision[i] = average_precision_score(Y_test[:, i], y_score[:, i])
         #pr_auc[i] = sk.metrics.auc(precision[i], recall[i])
         pr_auc[i] = 1
+        if n_points is not None:
+            x = np.linspace(precision[i][0], precision[i][-1], n_points)
+            indxs = np.searchsorted(precision[i], x)
+            precision[i] = precision[i][indxs]
+            recall[i] = recall[i][indxs]
+            thresh[i] = thresh[i][np.clip(indxs, 0, thresh[i].size - 1)]
         thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
 
     if labels is None:
@@ -128,8 +144,10 @@ def plotMultiPR(y_true,        # list of true labels
 
     # make layout
     layout = go.Layout(title=title,
-                       xaxis={'title': 'Precision = P(y=1 | yp=1)'},   # 'Precision = P(yp=y | yp=1)'
-                       yaxis={'title': 'Recall = TPR = P(yp=1 | y=1)'}, # 'Recall = TPR = P(yp=y | y=1)'
+                       yaxis={'title': 'Precision = P(y=1 | yp=1)',
+                              'range': [0, 1]},   # 'Precision = P(yp=y | yp=1)'
+                       xaxis={'title': 'Recall = TPR = P(yp=1 | y=1)',
+                              'range': [0, 1]}, # 'Recall = TPR = P(yp=y | y=1)'
                        legend=dict(x=1),
                        hovermode='closest',
     )
@@ -142,7 +160,7 @@ def plotMultiPR(y_true,        # list of true labels
 def plotConfusionMatrix(y_true, # list of true labels
                         y_pred, # list of predicted labels
                         conf_matrix = None, # optional mode to directly provide confusion matrix
-                        title = 'Confusion Matrix',
+                        title = None,
                         labels = None, # list of labels for each class
                         binarized = None, # if int/str then makes 1vsAll confusion matrix of that class
                         add_totals = True, # whether to add an extra row for class totals
@@ -156,13 +174,14 @@ def plotConfusionMatrix(y_true, # list of true labels
     EX: plotConfusionMatrix(y_true, y_pred, labels)
     """
 
-    n_classes = len(labels) if labels is not None else len(np.unique(y_true))
+    if conf_matrix is None:
+        n_classes = len(labels) if labels is not None else len(np.unique(y_true))
+        conf_matrix = sk.metrics.confusion_matrix(y_true, y_pred, labels=range(n_classes))
+    else:
+        n_classes = conf_matrix.shape[0]
 
     if labels is None:
-        labels = ['C%d' % n for n in range(1, n_classes+1)]
-
-    if conf_matrix == None:
-        conf_matrix = sk.metrics.confusion_matrix(y_true, y_pred, labels=range(n_classes))
+        labels = ['C%d' % n for n in range(1, n_classes + 1)]
 
     acc = np.diag(conf_matrix).sum() / np.sum(conf_matrix) * 100
 
@@ -216,11 +235,11 @@ def plotConfusionMatrix(y_true, # list of true labels
     else:
         norm_conf_matrix = conf_matrix
     color_mat = color_mat.astype(float)
-    color_mat[:-1,:-1] = norm_conf_matrix
+    color_mat[:norm_conf_matrix.shape[0],:norm_conf_matrix.shape[1]] = norm_conf_matrix
 
     # hover text
-    txt_format = '<b>Pred:</b> %s <br><b>True:</b> %s <br><b>Row norm:</b> %.3f%% <br><b>Col norm:</b> %.3f%%'
-    htext = np.array([[txt_format % (labels[c], labels[r], row_percs[r,c]*100, col_percs[r,c]*100)
+    txt_format = '%d<br><b>Pred:</b> %s <br><b>True:</b> %s <br><b>Row norm:</b> %.3f%% <br><b>Col norm:</b> %.3f%%'
+    htext = np.array([[txt_format % (conf_matrix[r,c], labels[c], labels[r], row_percs[r,c]*100, col_percs[r,c]*100)
                        for c in range(n_classes)] for r in range(n_classes)])
 
     # Adjust Total rows
@@ -233,7 +252,8 @@ def plotConfusionMatrix(y_true, # list of true labels
         true_tot_text = np.array([['<b>%% of True Data:</b> %.2f%%' % x] for x in true_tots[:-1]/sum(true_tots[:-1])*100]+[['Total Samples']])
         htext = np.hstack((np.vstack((htext, pred_tot_text)), true_tot_text))
 
-    fig = ff.create_annotated_heatmap(color_mat, x=num_labels, y=num_labels, colorscale='Greys', annotation_text=conf_matrix_tots)
+    fig = ff.create_annotated_heatmap(color_mat, x=num_labels, y=num_labels,
+                                      colorscale='Greys', annotation_text=conf_matrix_tots)
 
     fig.layout.yaxis.title = 'True'
     fig.layout.xaxis.title = 'Predicted (Total accuracy = %.3f%%)' % acc
@@ -248,6 +268,8 @@ def plotConfusionMatrix(y_true, # list of true labels
     fig.layout.xaxis.tickvals = num_labels
     fig.layout.xaxis.ticktext = labels_short
     fig.data[0].hoverlabel.bgcolor = 'rgb(188,202,225)'
+    if title is not None:
+        fig.layout.title = title
 
     # fig.layout.yaxis.autorange = 'reversed'
     fig.layout.yaxis.tickmode = 'array'

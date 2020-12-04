@@ -2,9 +2,15 @@
 
 import plotly.offline as pyo
 import plotly
+import plotly.graph_objs as go
 import collections.abc
 import numpy as np
 import colorlover as cl
+
+
+def placeholder_figure(id):
+    ''' Creates placholder figure for Dash callbacks '''
+    return go.Figure(data=None, layout={'meta': [id]})
 
 def plotOut(fig,
             plot=True,

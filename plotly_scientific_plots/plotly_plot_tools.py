@@ -22,6 +22,7 @@ def plotHist(data,              # 1D list/np vector of data
             plot=True,          #1/0. If 0, returns plotly json object, but doesnt plot
             title='Distribution', # plot title
             xlbl='',            # plot label
+            bins=40,            # number of histogram bins
             rm_outliers = False, #1/0 whether to remove outliers or not
             density = True,		# whether to plot PDF or count
             boxplot = True,     # 1/0 whether to do upper boxplot
@@ -51,7 +52,7 @@ def plotHist(data,              # 1D list/np vector of data
 
     adj, corr_data, outliers, rng, stats = removeOutliers(data, stdbnd=6, percclip=[5, 95], rmv=rm_outliers)
 
-    hy, hx = np.histogram(data, bins=40, density=density, range=rng)
+    hy, hx = np.histogram(data, bins=bins, density=density, range=rng)
     top = np.max(hy)*1.1
     jitter = .02
 
@@ -578,7 +579,7 @@ def basicBarPlot(data,          # See docstring
                             color=color,
                             line=dict(
                                 color=color,
-                                width=1.5),
+                                width=width),
                         ),
                         opacity=0.6)
                   ]
@@ -631,15 +632,15 @@ def barPlot(data,           # list of 1D data vectors
     if N<3:
         cols = cl.scales[str(3)]['qual']['Set1'][0:N]
     elif N<=12:
-        cols = cl.scales[str(N)]['qual']['Set3']
+        cols = cl.scales[str(N)]['qual']['Set2']
     else:
         cols=[None]*N
 
     jitter = .03
 
-    means = [np.mean(col) for col in data]
-    meds = [np.median(col) for col in data]
-    std = [np.std(col) for col in data]
+    means = np.array([np.mean(col) for col in data])
+    meds = np.array([np.median(col) for col in data])
+    std = np.array([np.std(col) for col in data])
 
     traces = []
     if bar:
@@ -668,7 +669,7 @@ def barPlot(data,           # list of 1D data vectors
         traces += sum(boxs,[])
 
     # scale markersize
-    Lxp = np.max(Lx)
+    Lxp = min(maxData, np.max(Lx))
     if Lxp > 5000:
         markersize = 1
     elif Lxp > 2000:
@@ -727,10 +728,11 @@ def barPlot(data,           # list of 1D data vectors
         stat_str = '. '.join(['P(%s)=%.3f' % (x[0], x[1]) for x in statvals])
         title = title + '. ' + stat_str
 
+    y_min = min(0, np.min(means-std)*2)
     layout = go.Layout(
         title=title,
         xaxis=xaxis,
-        yaxis={'title': ylbl, 'range': [0, np.max(means+std)*2], 'autorange': auto_rng},
+        yaxis={'title': ylbl, 'range': [y_min, np.max(means+std)*2], 'autorange': auto_rng},
         bargap=.5,
         hovermode='closest',
         showlegend = False,

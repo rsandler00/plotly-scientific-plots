@@ -8,7 +8,6 @@ import pickle
 from plotly_scientific_plots.plotly_misc import jsonify
 
 
-
 ###Dash wrappers
 def dashSubplot(plots,
                 min_width=18,  # min width of column (in %). If more columns, scrolling is enabled
@@ -45,6 +44,7 @@ def dashSubplot(plots,
 
     return layout
 
+
 def horizontlDiv(dashlist,
                  id='L',    # either single element or list. If single, id of html divs will be this + # (ie 'L1', 'L2', etc..
                  width=50): #either total width or list of indiv widths
@@ -62,6 +62,7 @@ def horizontlDiv(dashlist,
                                  'vertical-align': 'middle'})
                  for c,i in enumerate(dashlist)]
     return horiz_div
+
 
 def dashSubplot_from_figs(figs):
     n_r = int(np.ceil(np.sqrt(len(figs))))
@@ -89,9 +90,10 @@ def startDashboardSerial(figs,
                         min_width = 18,  # min width of column (in %). If more columns, scrolling is enabled
                         max_width = 50,  # max width of column (in %).
                         indiv_widths = None,
-                        host = None,    # set to '0.0.0.0' to run as a server. Default val is None (localhost)
-                        title = '',
-                        port = 8050
+                        host=None,    # set to '0.0.0.0' to run as a server. Default val is None (localhost)
+                        title='',
+                        port=8050,
+                        run=True,
                   ):
     """
     This starts the dash layout
@@ -105,17 +107,22 @@ def startDashboardSerial(figs,
     for c_num, col in enumerate(figs):
         g_col = []
         for r_num, f in enumerate(col):
-            if f != []:
-                g_col += [dcc.Graph(figure=f, id='row_%d_col_%d' % (r_num, c_num))]
-            else:
+            if f == []:
                 g_col += [[]]
+            elif isinstance(f, dash.development.base_component.Component):
+                g_col += [f]
+            else:
+                id = f.layout.meta or ['row_%d_col_%d' % (r_num, c_num)]
+                g_col += [dcc.Graph(figure=f, id=id[0])]
         graphs += [g_col]
 
     app = dash.Dash()
     app.layout = dashSubplot(graphs, min_width, max_width, indiv_widths, title)
-    app.run_server(port=port, debug=False, host=host)
+    if run:
+        app.run_server(port=port, debug=False, host=host)
 
-    return None
+    return app
+
 
 def startDashboard(figs,
                    parr=False,  # T/F. If True, will spin seperate python process for Dash webserver
@@ -145,6 +152,7 @@ def _dump_pkl(obj, file_path):
     ''' Saves a pkl file '''
     with open(file_path, 'wb') as dfile:
         pickle.dump(obj, dfile, protocol = 2)
+
 
 def _dump_json(obj, file_path):
     ''' Saves a json file '''

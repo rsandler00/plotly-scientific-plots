@@ -115,6 +115,7 @@ def _massageData(y,
     y = np.atleast_2d(np.array(y))
 
     if y.dtype == 'O':  # arrays are not equally size
+        y = y.flatten()
         equal_size = False
         n_sigs = len(y)
         n_bins = [len(s) for s in y]
@@ -150,7 +151,7 @@ def _massageDataCorrelate(n_sigs, n_bins, equal_size, required, data):
         provided = False
         shared = True
         if required:
-            assert equal_size == True, 'If y is unequally sized arrays, a unique data for each must be provided'
+            assert equal_size == True, 'If y is unequally sized arrays, a unique x data for each must be provided'
         data = [None]
     else:
         data = np.array(data)

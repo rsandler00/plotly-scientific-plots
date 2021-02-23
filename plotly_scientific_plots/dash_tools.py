@@ -112,7 +112,10 @@ def startDashboardSerial(figs,
             elif isinstance(f, dash.development.base_component.Component):
                 g_col += [f]
             else:
-                id = f.layout.meta or ['row_%d_col_%d' % (r_num, c_num)]
+                if 'meta' in f['layout'] and f['layout']['meta'] is not None:
+                    id = f['layout']['meta']
+                else:
+                    id = ['row_%d_col_%d' % (r_num, c_num)]
                 g_col += [dcc.Graph(figure=f, id=id[0])]
         graphs += [g_col]
 

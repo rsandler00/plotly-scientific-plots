@@ -621,20 +621,21 @@ def barPlot(data,           # list of 1D data vectors
     # remove any empty data columns
     empty_cols = [len(d) > 0 for d in data]
     data = list(compress(data, empty_cols))
-    names = list(compress(names, empty_cols))
 
     N = len(data)
     Lx = [len(col) for col in data]
 
     if names is None:
         names = [str(i + 1) for i in range(N)]
+    else:
+        names = list(compress(names, empty_cols))
 
     if N<3:
         cols = cl.scales[str(3)]['qual']['Set1'][0:N]
     elif N<=12:
         cols = cl.scales[str(N)]['qual']['Set2']
     else:
-        cols=[None]*N
+        cols = ['blue'] * N
 
     jitter = .03
 
@@ -1321,7 +1322,7 @@ def basicLinePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
     y = np.atleast_2d(y)
     [n_sigs, n_bins] = y.shape
 
-    if names == None:
+    if names is None:
         names = ['S_%d' % (n+1) for n in range(n_sigs)]
 
     traces = []
@@ -1355,6 +1356,123 @@ def basicHeatmap(z,
                        yaxis={'title': ylbl},
                        )
     fig = go.Figure(data=traces, layout=layout)
+
+    return plotOut(fig, plot)
+
+
+
+def plot_2d_table(matrix = None,  # optional mode to directly provide confusion matrix
+                  title = None,
+                  x = None,  # list of labels for each class
+                  y=None,
+                  ylbl='',
+                  xlbl='',
+                  add_totals = True,  # whether to add an extra row for class totals
+                  plot = True,  # 1/0. If 0, returns plotly json object, but doesnt plot
+                  fontsize=18,  # axis font
+                  summary_func=None,
+                  summary_str='Avg'
+                  ):
+    """
+    Plots either a full or binarized confusion matrix
+
+    EX: plotConfusionMatrix(y_true, y_pred, labels)
+    """
+
+    n_rows, n_cols = matrix.shape
+
+    if x is None:
+        x = ['C%d' % n for n in range(1, n_cols + 1)]
+
+    if y is None:
+        y = ['C%d' % n for n in range(1, n_rows + 1)]
+
+    x = [str(x) for x in x]   # convert to str
+    x = ['[' + x + ']' if len(x) == 1 else x for x in x]    #needed for stupid plotly bug
+    y = [str(x) for x in y]   # convert to str
+    y = ['[' + x + ']' if len(x) == 1 else x for x in y]    #needed for stupid plotly bug
+
+    summary_func = summary_func or np.mean
+
+    # adds an extra row for matrix totals
+    matrix_tots =  copy.deepcopy(matrix)
+    if add_totals:
+        pred_tots = summary_func(matrix, 0).astype(int)
+        matrix_tots = np.vstack((matrix, pred_tots))
+        true_tots = summary_func(matrix_tots, 1).astype(int)
+        matrix_tots = np.hstack((matrix_tots, np.atleast_2d(true_tots).T))
+        x = x + [summary_str]
+        y = y + [summary_str]
+    xlbls_short = [x[:10] if type(x) == str else x for x in x]
+    ylbls_short = [x[:10] if type(x) == str else x for x in y]
+
+    # numeric labels
+    num_xlbls = list(range(len(x)))
+    num_ylbls = list(range(len(y)))
+
+    # normalize matrix
+    color_mat = copy.deepcopy(matrix_tots)
+    norm_conf_matrix = matrix
+    color_mat = color_mat.astype(float)
+    color_mat[:norm_conf_matrix.shape[0],:norm_conf_matrix.shape[1]] = norm_conf_matrix
+
+    # Adjust Total rows
+    if add_totals:
+        totals_row_shading = .0    # range 0 to 1. 0=darkest, 1=lightest
+        tot_val = np.min(norm_conf_matrix) + (np.max(norm_conf_matrix) - np.min(norm_conf_matrix))*totals_row_shading
+        color_mat[-1, :] = tot_val
+        color_mat[:, -1] = tot_val
+
+
+    fig = ff.create_annotated_heatmap(color_mat, x=num_xlbls, y=num_ylbls,
+                                      colorscale='Greys', annotation_text=matrix_tots)
+
+    fig.layout.yaxis.title = ylbl
+    fig.layout.xaxis.title = xlbl
+    fig.layout.xaxis.titlefont.size = fontsize
+    fig.layout.yaxis.titlefont.size = fontsize
+    fig.layout.xaxis.tickfont.size = fontsize - 2
+    fig.layout.yaxis.tickfont.size = fontsize - 2
+    fig.layout.showlegend = False
+    # Add label text to axis values
+    fig.layout.xaxis.tickmode = 'array'
+    fig.layout.xaxis.range = [-.5, n_cols + .5]
+    fig.layout.xaxis.tickvals = num_xlbls
+    fig.layout.xaxis.ticktext = xlbls_short
+    fig.data[0].hoverlabel.bgcolor = 'rgb(188,202,225)'
+    if title is not None:
+        fig.layout.title = title
+
+    # fig.layout.yaxis.autorange = 'reversed'
+    fig.layout.yaxis.tickmode = 'array'
+    fig.layout.yaxis.range = [n_rows + .5, -.5]
+    fig.layout.yaxis.tickvals = num_ylbls
+    fig.layout.yaxis.ticktext = ylbls_short
+    fig.layout.margin.l = 120   # adjust left margin to avoid ylbl overlaying tick str's
+
+    fig['data'][0]['xgap'] = 1
+    fig['data'][0]['ygap'] = 1
+    ## Change annotation font (& text)
+    for i in range(len(fig.layout.annotations)):
+        fig.layout.annotations[i].font.size = fontsize-3
+
+    ### Adjust totals fontstyle
+    if add_totals:
+        # get totals indxs
+        last_column_indxs = [(n_cols + 1) * x - 1 for x in range(1, n_cols + 1)]
+        last_row_indxs = list(range((n_rows + 1) * (n_rows), (n_rows + 1) ** 2))
+        totals_annot_indxs = last_row_indxs + last_column_indxs
+        # adjust totals font size & color
+        # for i in totals_annot_indxs:
+        #     fig['layout']['annotations'][i]['font'] = dict(size=fontsize, color='#000099')
+
+        # Add border lines for total row/col
+        data = list(fig['data'])
+        data += [go.Scatter(x=[n_cols - .5, n_cols - .5], y=[-.5, n_rows + .5], showlegend=False,  # vert line
+                            hoverinfo='none', line=dict(color='red', width=4, dash='solid'))]
+        data += [go.Scatter(y=[n_rows - .5, n_rows - .5], x=[-.5, n_cols + .5], showlegend=False,  # horiz line
+                            hoverinfo='none', line=dict(color='red', width=4, dash='solid'))]
+        fig = go.Figure(data=data, layout=fig['layout'])
 
     return plotOut(fig, plot)
 

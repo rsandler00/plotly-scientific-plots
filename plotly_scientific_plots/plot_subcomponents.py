@@ -168,8 +168,11 @@ def labelsShading(labels,   # array of labels
                   exclude_cats=[],  # excludes this category from shading
                   ):
     '''
-
+    Returns plotly rectangle which shade whenever a time-series vector of predicted labels is a given label.
+    EX:
+        labelsShading(labels, index=x, exclude_cats=[0])
     '''
+
     cats, indxs, cats_reindexed = np.unique(labels, return_index=True, return_inverse=True)
     n_vals = len(labels)
     n_cats = len(cats)
@@ -177,6 +180,9 @@ def labelsShading(labels,   # array of labels
 
     if index is None:
         index  = np.arange(0,n_vals)
+
+    if not isinstance(exclude_cats, list):
+        exclude_cats = [exclude_cats]
 
     # get list of transition points in time-series when label changes
     transition_points, transition_values = labelsToTransitions(cats_reindexed)
@@ -220,10 +226,13 @@ def labelsToTransitions(labels,
                         ):
     '''
     gets transition points from labels
+    Returns:
+        transition_points: list of transition points
+        transition_values: list same size as transition_points of actual values of labels at those points
     '''
     if mode == 'all':
         diff = np.diff(labels) != 0
-    transitions = list(np.where(diff)[0]+1)
-    transitions = [0] + transitions + [len(diff)]
-    transition_values = labels[transitions]
-    return transitions, transition_values
+    transition_points = list(np.where(diff)[0]+1)
+    transition_points = [0] + transition_points + [len(diff)]
+    transition_values = labels[transition_points]
+    return transition_points, transition_values

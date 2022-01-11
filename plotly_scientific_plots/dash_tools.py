@@ -1,8 +1,8 @@
 from multiprocessing import Process
 import numpy as np
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc
+from dash import html
 import json
 import pickle
 from plotly_scientific_plots.plotly_misc import jsonify

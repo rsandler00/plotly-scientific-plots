@@ -56,6 +56,10 @@ def plotMultiROC(y_true,        # list of true labels
             thresh[i] = thresh[i][indxs]
         thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
 
+    if len(labels) != n_classes:
+        print(f'Warning: have {len(labels)} lables, and {n_classes} classes. Disregarding labels')
+        labels = None
+
     if labels is None:
         labels = ['C%d' % n for n in range(1, n_classes+1)]
 
@@ -175,7 +179,7 @@ def plotConfusionMatrix(y_true, # list of true labels
     """
 
     if conf_matrix is None:
-        n_classes = len(labels) if labels is not None else len(np.unique(y_true))
+        n_classes = len(labels) if labels is not None else len(np.unique(np.concatenate((y_pred, y_true))))
         conf_matrix = sk.metrics.confusion_matrix(y_true, y_pred, labels=range(n_classes))
     else:
         n_classes = conf_matrix.shape[0]

@@ -13,8 +13,11 @@ def dashSubplot(plots,
                 min_width=18,  # min width of column (in %). If more columns, scrolling is enabled
                 max_width=50,  # max width of column (in %).
                 indiv_widths=None,  # can specify list of individual column widths
-                title=''
+                title=''        # str or list of strs
                 ):
+
+    if isinstance(title, str):
+        title = [title]
 
     # remove empty elements of list
     plots = [[plt for plt in col if plt != []] for col in plots]    # remove empty plots from each column
@@ -31,6 +34,7 @@ def dashSubplot(plots,
     else:
         col_width = indiv_widths
 
+    title = sum([[i, html.Br()] for i in title], [])[:-1]
 
     col_style = [{'width': str(col_width[i]) + '%',
              'display': 'inline-block',
@@ -60,7 +64,7 @@ def horizontlDiv(dashlist,
                           style={'width': indiv_width[c],
                                  'display': 'inline-block',
                                  'vertical-align': 'middle'})
-                 for c,i in enumerate(dashlist)]
+                 for c, i in enumerate(dashlist)]
     return horiz_div
 
 

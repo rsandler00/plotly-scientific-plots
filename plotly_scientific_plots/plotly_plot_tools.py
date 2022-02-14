@@ -1229,30 +1229,37 @@ def tornadoPlot(vals,   # in Nx3 array, where columns are[low_val, orig_val, hig
 
 
 def plotTable2(data,
-              top_headers,
+               col_headers,
+               row_headers=None,
               width=None,
               plot=True,
               title=None,
+               sig_figs=3, # amount of significant figures to plot
               ):
     '''
     Wrapper for plotly table function
-    NOTE: this is NOT compatible w/ dashboards as plotly table object doesnt have a ._data field & thus
-            cant easily be jsonified
     :return:
     '''
     colors = cl.scales['5']['seq']['Blues']
 
+    if sig_figs is not None:
+        data = np.round(data, sig_figs)
+
+    if row_headers is not None:
+        data = np.concatenate((np.atleast_2d(row_headers), data), axis=0)
+        col_headers = [''] + col_headers
+
     trace = go.Table(
-        header=dict(values=top_headers,
-                    line = dict(color='#7D7F80'),
-                    fill = dict(color='#a1c3d1'),
+        header=dict(values=col_headers,
+                    line=dict(color='#7D7F80'),
+                    fill=dict(color='#a1c3d1'),
                     font=dict(color='white', size=12),
                     height=None,    # row-height
-                    align = ['left'] * 5),
+                    align=['left'] * 5),
         cells=dict(values=data,
-                   line = dict(color='#7D7F80'),
-                   fill = dict(color='#EDFAFF'),
-                   align = ['left'] * 5),
+                   line=dict(color='#7D7F80'),
+                   fill=dict(color='#EDFAFF'),
+                   align=['left'] * 5),
         hoverinfo='x+y+name'
     )
 
@@ -1262,8 +1269,7 @@ def plotTable2(data,
         title=title
 
     )
-    data = [trace]
-    fig = dict(data=data, layout=layout)
+    fig = dict(data= [trace], layout=layout)
 
     return plotOut(fig, plot)
 

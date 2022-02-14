@@ -55,7 +55,7 @@ def jsonifyFigure(fig):
     Converts a plotly Figure object into a dict.
     Note that pyo.plot() works the same w.r.t. a Figure object or a dict...
     """
-    if 'json_format' in fig:    # input already in json format
+    if isinstance(fig, dict) or 'json_format' in fig:    # input already in json format
         fig_dict = fig
     else:                       # input needs to be converted to json format
         fig_dict = {
@@ -66,6 +66,14 @@ def jsonifyFigure(fig):
     fig_dict = _iterateOverDicts(fig_dict, _tolist)
 
     return fig_dict
+
+
+def jsonify_plotly_figure_dict(fig_dict):
+    out = '{'
+    for name, fig in fig_dict.items():
+        out += f'"{name}": {fig.to_json()}'
+    out += '}'
+    return out
 
 
 def _iterateOverDicts(ob, func):

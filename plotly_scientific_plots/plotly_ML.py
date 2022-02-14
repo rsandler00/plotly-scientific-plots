@@ -23,6 +23,7 @@ def plotMultiROC(y_true,        # list of true labels
                     n_points=100,  # reinterpolates to have exactly N points
                     labels = None, # list of labels for each class
                     threshdot = None,
+                    return_auc=False,
                     plot=True,  # 1/0. If 0, returns plotly json object, but doesnt plot
                 ):
     """
@@ -54,6 +55,10 @@ def plotMultiROC(y_true,        # list of true labels
             tpr[i] = tpr[i][indxs]
             fpr[i] = fpr[i][indxs]
             thresh[i] = thresh[i][indxs]
+            # Add endpoints for proper AUC calcs
+            tpr[i] = np.concatenate(([0], tpr[i], [1]))
+            fpr[i] = np.concatenate(([0], fpr[i], [1]))
+            thresh[i] = np.concatenate(([np.inf], thresh[i], [-np.inf]))
         thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
 
     if len(labels) != n_classes:
@@ -88,7 +93,10 @@ def plotMultiROC(y_true,        # list of true labels
 
     fig = go.Figure(data=traces, layout=layout)
 
-    return plotOut(fig, plot)
+    if return_auc:
+        return plotOut(fig, plot),
+    else:
+        return plotOut(fig, plot)
 
 
 def plotMultiPR(y_true,        # list of true labels
@@ -100,7 +108,7 @@ def plotMultiPR(y_true,        # list of true labels
                     plot=True,  # 1/0. If 0, returns plotly json object, but doesnt plot
                 ):
     """
-    Makes a multiclass ROC plot
+    Makes a multiclass PR plot
     """
 
     y_true = np.array(y_true)
@@ -109,7 +117,7 @@ def plotMultiPR(y_true,        # list of true labels
         y_scores = np.atleast_2d(y_scores).T
     N, n_classes = y_scores.shape
     if n_classes == 1:  # needed to avoid inverting when doing binary classification
-        y_scores = -1*y_scores
+        y_scores = -1 * y_scores
 
     # calc ROC curves & AUC
     precision = dict()
@@ -120,14 +128,17 @@ def plotMultiPR(y_true,        # list of true labels
     for i in range(n_classes):
         precision[i], recall[i], thresh[i] = sk.metrics.precision_recall_curve(y_true == i, y_scores[:, i])
         #average_precision[i] = average_precision_score(Y_test[:, i], y_score[:, i])
-        #pr_auc[i] = sk.metrics.auc(precision[i], recall[i])
-        pr_auc[i] = 1
+        pr_auc[i] = np.sum(precision[i][1:] * -np.diff(recall[i]))
         if n_points is not None:
             x = np.linspace(precision[i][0], precision[i][-1], n_points)
             indxs = np.searchsorted(precision[i], x)
             precision[i] = precision[i][indxs]
             recall[i] = recall[i][indxs]
             thresh[i] = thresh[i][np.clip(indxs, 0, thresh[i].size - 1)]
+            # Add endpoints for proper AUC calcs
+            precision[i] = np.concatenate(([0], precision[i], [1]))
+            recall[i] = np.concatenate(([1], recall[i], [0]))
+            thresh[i] = np.concatenate(([-np.inf], thresh[i], [np.inf]))
         thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
 
     if labels is None:

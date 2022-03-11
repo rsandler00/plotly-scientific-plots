@@ -314,8 +314,8 @@ def plotPolar(data,         # N-d list/numpy array
     return plotOut(fig, plot)
 
 
-def corrPlot(x,                 # 1D data vector or list of 1D dsata vectors
-             y,                 # 1D data vector or list of 1D dsata vectors
+def corrPlot(x,                 # 1D data vector or list of 1D data vectors
+             y,                 # 1D data vector or list of 1D data vectors
              z=None,            # optional colors for the lines
              names=None,        # names of x, y (ex:['A', 'B']
              maxdata=2000,      # max # of points to plot above histogram (if too high, it will be slow)
@@ -1315,7 +1315,7 @@ def plotTable(data,
 
 
 def basicLinePlot(y,         # [n_sigs, n_bins] array (each signal is 1 row)
-             x=None,        # either [n_bins] array-like signal, or [n_signs, n_bins] signal
+             x=None,        # either [n_bins] array-like signal, or [n_sigs, n_bins] signal
              title='',
              xlbl='',
              ylbl='',

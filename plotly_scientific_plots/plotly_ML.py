@@ -3,7 +3,7 @@ import copy
 
 # import sklearn
 import sklearn as sk
-import sklearn.preprocessing
+from sklearn.preprocessing import OneHotEncoder
 import sklearn.model_selection
 import sklearn.ensemble
 import sklearn.metrics
@@ -17,7 +17,38 @@ from plotly_scientific_plots.plotly_misc import plotOut
 perc = lambda x: np.sum(x)/len(x)*100
 
 
-def plotMultiROC(y_true,        # list of true labels
+
+def MultiClassROC(y_true, y_scores, **kwargs):
+    ''' Wrapper for plotMultiROC for multiclass classification, where'''
+    y_scores = np.array(y_scores)
+    y_true = np.array(y_true)
+    if y_scores.ndim == 1:
+        y_scores = np.atleast_2d(y_scores).T
+    if y_true.ndim == 1:
+        y_true = np.atleast_2d(y_true).T
+    if y_scores.shape[1] == 1:  # assuming just giving scores of binary classifier
+        return MultiROC(y_true, y_scores, **kwargs)
+    n_samples, n_classes = y_scores.shape
+    encoder = OneHotEncoder(sparse=False, categories=np.atleast_2d(np.arange(n_classes)).tolist())
+    lbls_exp = encoder.fit_transform(y_true.reshape(-1, 1))
+    if n_classes > 2:
+        return MultiROC(lbls_exp, y_scores, **kwargs)
+    else:
+        return MultiROC(lbls_exp[:, 1:], y_scores[:, 1:], **kwargs)
+
+
+def MultiTrialROC(y_true, y_scores, **kwargs):
+    ''' Wrapper for plotMultiROC for multiple trials where lbls is the same but scores are differnt '''
+    n_samples, n_classes = y_scores.shape
+    return MultiROC(np.tile(np.atleast_2d(y_true).T, (1, n_classes)), y_scores, **kwargs)
+
+
+def plotMultiROC(*args, **kwargs):
+    print('\nplotMultiROC has been replaced by MultiClassROC & MultiTrialROC\n')
+    return MultiClassROC(*args, **kwargs)
+
+
+def MultiROC(y_true,        # list of true labels
                     y_scores,   # array of scores for each class of shape [n_samples, n_classes]
                     title = 'Multiclass ROC Plot',
                     n_points=100,  # reinterpolates to have exactly N points
@@ -32,13 +63,8 @@ def plotMultiROC(y_true,        # list of true labels
 
     y_true = np.array(y_true)
     y_scores = np.array(y_scores)
-    if y_scores.ndim == 1:  # convert to [n_samples, n_classes] even if 1 class
-        y_scores = np.atleast_2d(y_scores).T
+    assert y_true.shape == y_scores.shape, 'y_true and y_scores must have the exact same shape!'
     N, n_classes = y_scores.shape
-    if n_classes == 1:  # needed to avoid inverting when doing binary classification
-        y_scores *= -1
-        if threshdot is not None:
-            threshdot *= -1
 
     # calc ROC curves & AUC
     fpr = dict()
@@ -47,7 +73,7 @@ def plotMultiROC(y_true,        # list of true labels
     thresh_txt = dict()
     roc_auc = dict()
     for i in range(n_classes):
-        fpr[i], tpr[i], thresh[i] = sk.metrics.roc_curve(y_true == i, y_scores[:, i])
+        fpr[i], tpr[i], thresh[i] = sk.metrics.roc_curve(y_true[:, i], y_scores[:, i])
         roc_auc[i] = sk.metrics.auc(fpr[i], tpr[i])
         if n_points is not None:
             x = np.linspace(0, 1, n_points)
@@ -61,7 +87,7 @@ def plotMultiROC(y_true,        # list of true labels
             thresh[i] = np.concatenate(([np.inf], thresh[i], [-np.inf]))
         thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
 
-    if len(labels) != n_classes:
+    if labels is not None and len(labels) != n_classes:
         print(f'Warning: have {len(labels)} lables, and {n_classes} classes. Disregarding labels')
         labels = None
 
@@ -99,7 +125,36 @@ def plotMultiROC(y_true,        # list of true labels
         return plotOut(fig, plot)
 
 
-def plotMultiPR(y_true,        # list of true labels
+def MultiClassPR(y_true, y_scores, **kwargs):
+    ''' Wrapper for plotMultiROC for multiclass classification, where'''
+    y_scores = np.array(y_scores)
+    y_true = np.array(y_true)
+    if y_scores.ndim == 1:
+        y_scores = np.atleast_2d(y_scores).T
+    if y_true.ndim == 1:
+        y_true = np.atleast_2d(y_true).T
+    if y_scores.shape[1] == 1:  # assuming just giving scores of binary classifier
+        return MultiROC(y_true, y_scores, **kwargs)
+    n_samples, n_classes = y_scores.shape
+    encoder = OneHotEncoder(sparse=False, categories=np.atleast_2d(np.arange(n_classes)).tolist())
+    lbls_exp = encoder.fit_transform(y_true.reshape(-1, 1))
+    if n_classes > 2:
+        return MultiPR(lbls_exp, y_scores, **kwargs)
+    else:
+        return MultiPR(lbls_exp[:, 1:], y_scores[:, 1:], **kwargs)
+
+
+def MultiTrialROC(y_true, y_scores, **kwargs):
+    ''' Wrapper for plotMultiROC for multiple trials where lbls is the same but scores are differnt '''
+    n_samples, n_classes = y_scores.shape
+    return MultiPR(np.tile(np.atleast_2d(y_true).T, (1, n_classes)), y_scores, **kwargs)
+
+
+def plotMultiPR(*args, **kwargs):
+    print('\nplotMultiPR has been replaced by MultiClassPR & MultiTrialPR\n')
+    return MultiClassPR(*args, **kwargs)
+
+def MultiPR(y_true,        # list of true labels
                     y_scores,   # array of scores for each class of shape [n_samples, n_classes]
                     title = 'Multiclass PR Plot',
                     n_points=100,  # reinterpolates to have exactly N points
@@ -126,7 +181,7 @@ def plotMultiPR(y_true,        # list of true labels
     thresh = dict()
     thresh_txt = dict()
     for i in range(n_classes):
-        precision[i], recall[i], thresh[i] = sk.metrics.precision_recall_curve(y_true == i, y_scores[:, i])
+        precision[i], recall[i], thresh[i] = sk.metrics.precision_recall_curve(y_true[:, i], y_scores[:, i])
         #average_precision[i] = average_precision_score(Y_test[:, i], y_score[:, i])
         pr_auc[i] = np.sum(precision[i][1:] * -np.diff(recall[i]))
         if n_points is not None:

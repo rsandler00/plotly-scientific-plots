@@ -206,7 +206,7 @@ def conditionalHist(x,y, Nbins=50, std=True,
                        'y=%.2fx+%.2f' \
                        % (R2, p_val, R2sp, p_val_sp, slope, intercept)
             print(corrtext)
-            annots = go.Annotations([go.Annotation(
+            annots = go.Annotations([go.layout.Annotation(
                     x=0.05,
                     y=0.95,
                     showarrow=False,

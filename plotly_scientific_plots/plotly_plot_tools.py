@@ -16,6 +16,7 @@ from plotly_scientific_plots.plotly_misc import in_notebook, plotOut, _massageDa
 from plotly_scientific_plots.misc_computational_tools import removeOutliers, removeNaN, norm_mat
 from plotly_scientific_plots.plot_subcomponents import *
 
+
 ###Scientific Plots
 def plotHist(data,              # 1D list/np vector of data
             maxData=1000,       #  max # of points to plot above histogram (if too high, it will be slow)
@@ -339,9 +340,9 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
 
     # 1st convert t ndarray
     y, x, z, names, info = _massageData(y, x=x, z=z, names=names, txt=text)
-    assert info['x_info']['shared'], 'All x & y vectors must be same length!!!'
     N = info['n_sigs']
-    Lx = np.atleast_1d(info['n_bins'])
+    Lx = np.array([info['n_bins']] * N)
+    assert len(np.unique(Lx)) == 1, 'All x & y vectors must be same length!!!'
 
     # if data has too many points, remove some for speed
     Iplot = [np.arange(Lx[n]) if Lx[n] < maxdata else np.random.choice(Lx[n], size=maxdata, replace=False)
@@ -382,7 +383,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
         if text is None:
             scattertext = ''
         else:
-            scattertext = text
+            scattertext = text[Iplot[0]]
 
     # scale markersize
     Lxp = np.min([max(Lx),maxdata])
@@ -415,11 +416,11 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
             R2sp, p_val_sp = sp.stats.spearmanr(x[n], y[n])
             corrtext = 'Pearson [R2, P]=[%.2f,%.2f] <br> ' \
                        'Spearman [R2, P]=[%.2f,%.2f] <br> ' \
-                       'y=%.2fx+%.2f' \
-                       % (R2, p_val, R2sp, p_val_sp, slope, intercept)
+                       'y=%.2fx+%.2f (N=%d)' \
+                       % (R2, p_val, R2sp, p_val_sp, slope, intercept, Lx[n])
             #if only 1 data record print stats on graph
             if N==1:
-                annots = go.Annotations([go.Annotation(
+                annots = go.Annotations([go.layout.Annotation(
                     x=0.05,
                     y=0.95,
                     showarrow=False,
@@ -460,13 +461,15 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
 
     return plotOut(fig, plot)
 
+
 def scatterHistoPlot(x,
                      y,
-                     title = '2D Density Plot',
-                     xlbl = '',
-                     ylbl = '',
-                     plot = True
-                    ):
+                     title='2D Density Plot',
+                     xlbl='',
+                     ylbl='',
+                     xy_line=False,
+                     plot=True
+                     ):
     """
     This creates a scatter plot above a contour plots for the data
     """
@@ -490,6 +493,16 @@ def scatterHistoPlot(x,
     )
     data = [scatter_plot, contour_plot, x_density, y_density]
 
+    if xy_line:
+        x_rng = [max(np.min(x), np.min(y)), min(np.max(x), np.max(y))]
+        dx_rng = x_rng[1] - x_rng[0]
+        shift = .03  # shift from edges
+        xc = np.array([x_rng[0] + dx_rng * shift, x_rng[1] - dx_rng * shift])
+        yc = np.array([x_rng[0] + dx_rng * shift, x_rng[1] - dx_rng * shift])
+        xyline = [go.Scatter(x=xc, y=xc, name='X=Y', showlegend=True,
+                             mode='lines', line={'color': 'black'})]
+        data += xyline
+
     scatterplot_ratio = .85    # ratio of figure to be taken by scatterplot vs histograms
     layout = go.Layout(
         title=title,
@@ -498,7 +511,7 @@ def scatterHistoPlot(x,
         width=600,
         height=550,
         xaxis=dict(
-            title = xlbl,
+            title=xlbl,
             domain=[0, scatterplot_ratio],
             showgrid=False,
             zeroline=False
@@ -530,6 +543,7 @@ def scatterHistoPlot(x,
 
     return plotOut(fig, plot)
 
+
 def basicBarPlot(data,          # See docstring
                  x=None,        # xtick labels. Can be numeric or str
                  names=None,    # series labels
@@ -560,17 +574,20 @@ def basicBarPlot(data,          # See docstring
     if color is None and n_sigs == 1:
         color = 'rgb(8,48,107)'
 
+    if text == 'numb':
+        text = [[f'{x:.3f}' for x in sig] for sig in data]
+    elif text is None:
+        text = [None] * n_sigs
+    if not isinstance(text[0], list) and text[0] is not None:
+        text = [text]
+
     if sort:
         assert n_sigs == 1, 'Sort only works w/ a single signal'
         ord = np.argsort(data)[::-1]
         data = data[0, ord]
+        text = np.array(text)[0, ord]
         if x is not None:
             x = x[0, ord]
-
-    if text == 'numb':
-        text = [[str(x) for x in sig] for sig in data]
-    else:
-        text = [None] *  n_sigs
 
     traces = []
     for i in range(n_sigs):
@@ -592,11 +609,14 @@ def basicBarPlot(data,          # See docstring
             width = width,
     )
     if line:
-        layout.shapes = [hline(line)]
+        if not isinstance(line, list):
+            line = [line]
+        layout.shapes = [hline(l) for l in line]
 
     fig = go.Figure(data=traces, layout=layout)
 
     return plotOut(fig, plot)
+
 
 def barPlot(data,           # list of 1D data vectors
             names=None,     # names of data vectors
@@ -633,7 +653,7 @@ def barPlot(data,           # list of 1D data vectors
     if N<3:
         cols = cl.scales[str(3)]['qual']['Set1'][0:N]
     elif N<=12:
-        cols = cl.scales[str(N)]['qual']['Set2']
+        cols = cl.scales[str(N)]['qual']['Set3']
     else:
         cols = ['blue'] * N
 

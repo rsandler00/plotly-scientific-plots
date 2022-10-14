@@ -47,7 +47,7 @@ def makeEventLines(times,   # 1d array of timestamps
     return lines
 
 
-def abs_line(position, orientation, color='red', width=3, annotation=None, name='abs_line', dash='solid'):
+def abs_line(position, orientation, color='red', width=3, annotation=None, name='abs_line', dash='solid', opacity=0):
     '''
     Creates an absolute line which appears irregardless of panning.
     To use, add output to layout shapes:
@@ -71,6 +71,7 @@ def abs_line(position, orientation, color='red', width=3, annotation=None, name=
         big+'1': position,
         lil+'0': 0,
         lil+'1': 1,
+        'opacity': opacity,
         'line': {
             'color': color,
             'width': width,

@@ -7,7 +7,7 @@ setup(
     author='Roman Sandler',
     author_email='rsandler00@gmail.com',
     packages=['plotly_scientific_plots'],
-    install_requires=['numpy', 'scipy', 'plotly', 'colorlover', 'sklearn',
+    install_requires=['numpy', 'scipy', 'plotly', 'colorlover', 'scikit-learn',
                       'dash', 'dash_core_components', 'dash_html_components'],
     version='0.1.0.6',
     license='MIT',

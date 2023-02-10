@@ -206,7 +206,7 @@ def conditionalHist(x,y, Nbins=50, std=True,
                        'y=%.2fx+%.2f' \
                        % (R2, p_val, R2sp, p_val_sp, slope, intercept)
             print(corrtext)
-            annots = go.Annotations([go.Annotation(
+            annots = go.layout.Annotations([go.layout.Annotation(
                     x=0.05,
                     y=0.95,
                     showarrow=False,
@@ -356,7 +356,7 @@ def removeOutliers(data, stdbnd=6, percclip=[5,95], rmv=True):
 
 def removeNaN(x):
     # This function removes NaNs
-    return x[~np.isnan(x)]
+    return np.array(x)[~np.isnan(x)]
 
 
 def addJitter(data,std_ratio=.03):

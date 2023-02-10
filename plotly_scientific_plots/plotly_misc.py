@@ -6,7 +6,19 @@ import plotly.graph_objs as go
 import collections.abc
 import numpy as np
 import colorlover as cl
+from typing import Union, Generic, TypeVar
 
+Shape = TypeVar("Shape")
+DType = TypeVar("DType")
+
+class Array(Generic[Shape, DType]):
+    """
+    Use this to type-annotate numpy arrays, e.g.
+        image: Array['H,W,3', np.uint8]
+        xy_points: Array['N,2', float]
+        nd_mask: Array['...', bool]
+    """
+    pass
 
 def placeholder_figure(id):
     ''' Creates placholder figure for Dash callbacks '''
@@ -108,8 +120,15 @@ def _tolist(arr):
     return arr.tolist() if type(arr)==np.ndarray else arr
 
 
-def _massageData(y,
-                 x=None,
+def _massageData(y: Union[Array[float, 'n_bins'],
+                          Array[float, 'n_sigs, n_bins'],
+                          Array[list, 'n_sigs']
+                         ],
+                 x: Union[None,
+                          Array[float, 'n_bins'],
+                          Array[float, 'n_sigs, n_bins'],
+                          Array[list, 'n_sigs']
+                         ]=None,
                  z=None,
                  txt=None,
                  names=None
@@ -139,7 +158,7 @@ def _massageData(y,
 
     info = {
         'n_sigs': n_sigs,
-        'n_bins': n_bins,
+        'n_bins': n_bins if x_info['shared'] else [n_bins] * n_sigs,
         'x_info': x_info,
         'z_info': z_info,
     }

@@ -339,7 +339,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
 
     # 1st convert t ndarray
     y, x, z, names, info = _massageData(y, x=x, z=z, names=names, txt=text)
-    assert info['x_info']['shared'], 'All x & y vectors must be same length!!!'
+    # assert info['x_info']['shared'], 'All x & y vectors must be same length!!!'
     N = info['n_sigs']
     Lx = np.atleast_1d(info['n_bins'])
 
@@ -415,18 +415,17 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
             R2sp, p_val_sp = sp.stats.spearmanr(x[n], y[n])
             corrtext = 'Pearson [R2, P]=[%.2f,%.2f] <br> ' \
                        'Spearman [R2, P]=[%.2f,%.2f] <br> ' \
-                       'y=%.2fx+%.2f' \
-                       % (R2, p_val, R2sp, p_val_sp, slope, intercept)
+                       'y=%.2fx+%.2f. N=%d' \
+                       % (R2, p_val, R2sp, p_val_sp, slope, intercept, Lx[n])
             #if only 1 data record print stats on graph
-            if N==1:
-                annots = go.Annotations([go.Annotation(
-                    x=0.05,
-                    y=0.95,
-                    showarrow=False,
-                    text=corrtext,
-                    xref='paper',
-                    yref='paper'
-                )])
+            annots += [dict(
+                x=0.05,
+                y=0.95 - .1 * n,
+                showarrow=False,
+                text=corrtext,
+                xref='paper',
+                yref='paper'
+            )]
 
             if addCorrLine:
                 x_rng = [np.min(x[0]), np.max(x[0])]
@@ -462,33 +461,40 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
 
 def scatterHistoPlot(x,
                      y,
-                     title = '2D Density Plot',
-                     xlbl = '',
-                     ylbl = '',
-                     plot = True
+                     title='2D Density Plot',
+                     xlbl='',
+                     ylbl='',
+                     do_contour=True,
+                     dot_size=2,
+                     plot=True,
+                     nbins=0,
                     ):
     """
     This creates a scatter plot above a contour plots for the data
     """
 
+    data = []
     scatter_plot = go.Scatter(
         x=x, y=y, mode='markers', name='points',
-        marker=dict(color='rgb(102,0,0)', size=2, opacity=0.4)
+        marker=dict(color='rgb(102,0,0)', size=dot_size, opacity=0.4)
     )
-    contour_plot = go.Histogram2dcontour(
-        x=x, y=y, name='density', ncontours=20,
-        colorscale='Hot', reversescale=True, showscale=False
-    )
+    data += [scatter_plot]
+    if do_contour:
+        contour_plot = go.Histogram2dcontour(
+            x=x, y=y, name='density', ncontours=20,
+            colorscale='Hot', reversescale=True, showscale=False
+        )
+        data += [contour_plot]
     x_density = go.Histogram(
         x=x, name='x density',
         marker=dict(color='rgb(102,0,0)'),
-        yaxis='y2'
+        yaxis='y2', nbinsx=nbins
     )
     y_density = go.Histogram(
         y=y, name='y density', marker=dict(color='rgb(102,0,0)'),
-        xaxis='x2'
+        xaxis='x2', nbinsy=nbins
     )
-    data = [scatter_plot, contour_plot, x_density, y_density]
+    data += [x_density, y_density]
 
     scatterplot_ratio = .85    # ratio of figure to be taken by scatterplot vs histograms
     layout = go.Layout(
@@ -544,7 +550,7 @@ def basicBarPlot(data,          # See docstring
                  plot=True):
     """
     Makes a basic bar plot where data is either:
-        1. [n,1] list of values.
+        1. [Lx, 1] list of values.
         2. nested list of values e.g. [[1,2,3], [3,4,5]]
         3. [Lx, N] np array
 
@@ -603,6 +609,7 @@ def barPlot(data,           # list of 1D data vectors
             maxData=500,    # max # of points to plot above histogram (if too high, it will be slow)
             title=' ',      # title of plot
             ylbl='Mean',    # y-label
+            xlbl='',
             bar=True,       # 1/0. If 0, makes boxplot instead of barplot
             stats=[],       # which stat tests to run, including [ttest, MW, ANOVA, KW] (kruchsal-wallis)
             plot=True):     # 1/0. If 0, just returns fig object
@@ -633,7 +640,7 @@ def barPlot(data,           # list of 1D data vectors
     if N<3:
         cols = cl.scales[str(3)]['qual']['Set1'][0:N]
     elif N<=12:
-        cols = cl.scales[str(N)]['qual']['Set2']
+        cols = cl.scales[str(N)]['qual']['Set3']
     else:
         cols = ['blue'] * N
 
@@ -696,7 +703,7 @@ def barPlot(data,           # list of 1D data vectors
     traces += dataPlot
 
     xaxis = go.layout.XAxis(
-        # title="",
+        title=xlbl,
         showgrid=True,
         showline=True,
         ticks="",

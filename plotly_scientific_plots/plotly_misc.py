@@ -170,7 +170,7 @@ def _massageDataCorrelate(n_sigs, n_bins, equal_size, required, data):
     ''' Checks a correlate of main data (eg checks x/z when y provided '''
 
     def convertEmptyToNone(inp):
-        return None if inp==[] else inp
+        return None if data is None or len(data)==0 else inp
 
     data = convertEmptyToNone(data)
 

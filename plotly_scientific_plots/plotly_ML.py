@@ -1,3 +1,4 @@
+from copy import deepcopy
 import numpy as np
 import copy
 
@@ -50,11 +51,12 @@ def plotMultiROC(*args, **kwargs):
 
 def MultiROC(y_true,        # list of true labels
                     y_scores,   # array of scores for each class of shape [n_samples, n_classes]
-                    title = 'Multiclass ROC Plot',
+                    title='Multiclass ROC Plot',
                     n_points=100,  # reinterpolates to have exactly N points
-                    labels = None, # list of labels for each class
-                    threshdot = None,
+                    labels=None,  # list of labels for each class
+                    threshdot=None,  # whether to plot a dot @ the threshold
                     return_auc=False,
+                    metrics=True,
                     plot=True,  # 1/0. If 0, returns plotly json object, but doesnt plot
                 ):
     """
@@ -70,11 +72,10 @@ def MultiROC(y_true,        # list of true labels
     fpr = dict()
     tpr = dict()
     thresh = dict()
-    thresh_txt = dict()
-    roc_auc = dict()
+    auc = dict()
     for i in range(n_classes):
         fpr[i], tpr[i], thresh[i] = sk.metrics.roc_curve(y_true[:, i], y_scores[:, i])
-        roc_auc[i] = sk.metrics.auc(fpr[i], tpr[i])
+        auc[i] = sk.metrics.auc(fpr[i], tpr[i])
         if n_points is not None:
             x = np.linspace(0, 1, n_points)
             indxs = np.searchsorted(tpr[i], x)
@@ -85,7 +86,21 @@ def MultiROC(y_true,        # list of true labels
             tpr[i] = np.concatenate(([0], tpr[i], [1]))
             fpr[i] = np.concatenate(([0], fpr[i], [1]))
             thresh[i] = np.concatenate(([np.inf], thresh[i], [-np.inf]))
-        thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
+
+    thresh_txt = dict()
+    if metrics:
+        acc = deepcopy(thresh)
+        f1 = deepcopy(thresh)
+        for i in range(n_classes):
+            thresh_txt[i] = []
+            for j, th in enumerate(thresh[i]):
+                preds = y_scores[:, i] > th
+                acc[i][j] = np.mean(preds == y_true[:, i])
+                f1[i][j] = sk.metrics.f1_score(y_true[:, i], preds)
+                thresh_txt[i] += [f'T={th:.4f}. Acc={acc[i][j]:.4f}. F1={f1[i][j]:.4f}']
+    else:
+        for i in range(n_classes):
+            thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
 
     if labels is not None and len(labels) != n_classes:
         print(f'Warning: have {len(labels)} lables, and {n_classes} classes. Disregarding labels')
@@ -98,7 +113,7 @@ def MultiROC(y_true,        # list of true labels
 
     # make traces
     traces = []
-    [traces.append(go.Scatter(y=tpr[i], x=fpr[i], name=labels[i] + '. AUC= %.2f' % (roc_auc[i]), text=thresh_txt[i],
+    [traces.append(go.Scatter(y=tpr[i], x=fpr[i], name=labels[i] + '. AUC= %.2f' % (auc[i]), text=thresh_txt[i],
                               legendgroup=str(i), line={'width': 1}))
         for i in range(n_classes)]
     traces += [go.Scatter(y=[0, 1], x=[0, 1], name='Random classifier', line={'width': 1, 'dash': 'dot'})]
@@ -133,18 +148,21 @@ def MultiClassPR(y_true, y_scores, **kwargs):
         y_scores = np.atleast_2d(y_scores).T
     if y_true.ndim == 1:
         y_true = np.atleast_2d(y_true).T
+    # if y_true.shape[1] == 1 and y_scores.shape[1] == 2:  # assuming we want to get +,- PR plot
+    #     y_true = np.concatenate((1-y_true, y_true), axis=1)
     if y_scores.shape[1] == 1:  # assuming just giving scores of binary classifier
-        return MultiROC(y_true, y_scores, **kwargs)
+        return MultiPR(y_true, y_scores, **kwargs)
     n_samples, n_classes = y_scores.shape
     encoder = OneHotEncoder(sparse=False, categories=np.atleast_2d(np.arange(n_classes)).tolist())
     lbls_exp = encoder.fit_transform(y_true.reshape(-1, 1))
-    if n_classes > 2:
-        return MultiPR(lbls_exp, y_scores, **kwargs)
-    else:
-        return MultiPR(lbls_exp[:, 1:], y_scores[:, 1:], **kwargs)
+    return MultiPR(lbls_exp, y_scores, **kwargs)
+    # if n_classes > 2:
+    #     return MultiPR(lbls_exp, y_scores, **kwargs)
+    # else:
+    #     return MultiPR(lbls_exp[:, 1:], y_scores[:, 1:], **kwargs)
 
 
-def MultiTrialROC(y_true, y_scores, **kwargs):
+def MultiTrialPR(y_true, y_scores, **kwargs):
     ''' Wrapper for plotMultiROC for multiple trials where lbls is the same but scores are differnt '''
     n_samples, n_classes = y_scores.shape
     return MultiPR(np.tile(np.atleast_2d(y_true).T, (1, n_classes)), y_scores, **kwargs)
@@ -154,36 +172,40 @@ def plotMultiPR(*args, **kwargs):
     print('\nplotMultiPR has been replaced by MultiClassPR & MultiTrialPR\n')
     return MultiClassPR(*args, **kwargs)
 
+
 def MultiPR(y_true,        # list of true labels
                     y_scores,   # array of scores for each class of shape [n_samples, n_classes]
-                    title = 'Multiclass PR Plot',
+                    title='Multiclass PR Plot',
                     n_points=100,  # reinterpolates to have exactly N points
-                    labels = None, # list of labels for each class
-                    threshdot=None, # whether to plot a dot @ the threshold
+                    labels=None,  # list of labels for each class
+                    threshdot=None,  # whether to plot a dot @ the threshold
+                    return_auc=False,
+                    metrics=True,
                     plot=True,  # 1/0. If 0, returns plotly json object, but doesnt plot
                 ):
     """
     Makes a multiclass PR plot
     """
-
     y_true = np.array(y_true)
     y_scores = np.array(y_scores)
-    if y_scores.ndim == 1:  # convert to [n_samples, n_classes] even if 1 class
-        y_scores = np.atleast_2d(y_scores).T
+    assert y_true.shape == y_scores.shape, 'y_true and y_scores must have the exact same shape!'
     N, n_classes = y_scores.shape
-    if n_classes == 1:  # needed to avoid inverting when doing binary classification
-        y_scores = -1 * y_scores
 
-    # calc ROC curves & AUC
+    # if y_scores.ndim == 1:  # convert to [n_samples, n_classes] even if 1 class
+    #     y_scores = np.atleast_2d(y_scores).T
+    # N, n_classes = y_scores.shape
+    # if n_classes == 1:  # needed to avoid inverting when doing binary classification
+    #     y_scores = -1 * y_scores
+
+    # calc curves & AUC
     precision = dict()
     recall = dict()
-    pr_auc = dict()
     thresh = dict()
-    thresh_txt = dict()
+    auc = dict()
     for i in range(n_classes):
         precision[i], recall[i], thresh[i] = sk.metrics.precision_recall_curve(y_true[:, i], y_scores[:, i])
         #average_precision[i] = average_precision_score(Y_test[:, i], y_score[:, i])
-        pr_auc[i] = np.sum(precision[i][1:] * -np.diff(recall[i]))
+        auc[i] = np.sum(precision[i][1:] * -np.diff(recall[i]))
         if n_points is not None:
             x = np.linspace(precision[i][0], precision[i][-1], n_points)
             indxs = np.searchsorted(precision[i], x)
@@ -194,16 +216,34 @@ def MultiPR(y_true,        # list of true labels
             precision[i] = np.concatenate(([0], precision[i], [1]))
             recall[i] = np.concatenate(([1], recall[i], [0]))
             thresh[i] = np.concatenate(([-np.inf], thresh[i], [np.inf]))
-        thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
+
+    thresh_txt = dict()
+    if metrics:
+        acc = deepcopy(thresh)
+        f1 = deepcopy(thresh)
+        for i in range(n_classes):
+            thresh_txt[i] = []
+            for j, th in enumerate(thresh[i]):
+                preds = y_scores[:, i] > th
+                acc[i][j] = np.mean(preds == y_true[:, i])
+                f1[i][j] = sk.metrics.f1_score(y_true[:, i], preds)
+                thresh_txt[i] += [f'T={th:.4f}. Acc={acc[i][j]:.4f}. F1={f1[i][j]:.4f}']
+    else:
+        for i in range(n_classes):
+            thresh_txt[i] = ['T=%.4f' % t for t in thresh[i]]
+
+    if labels is not None and len(labels) != n_classes:
+        print(f'Warning: have {len(labels)} labels, and {n_classes} classes. Disregarding labels')
+        labels = None
 
     if labels is None:
         labels = ['C%d' % n for n in range(1, n_classes+1)]
 
-    labels = [str(x) for x in labels]  # convert to str
+    labels = [str(x) for x in labels]  # convert labels to str
 
     # make traces
     traces = []
-    [traces.append(go.Scatter(y=precision[i], x=recall[i], name=labels[i] + '. AUC= %.2f' % (pr_auc[i]), 
+    [traces.append(go.Scatter(y=precision[i], x=recall[i], name=labels[i] + '. AUC= %.2f' % (auc[i]),
                         text=thresh_txt[i], legendgroup=str(i), line={'width': 1})) for i in range(n_classes)]
 
     if threshdot is not None:
@@ -224,19 +264,22 @@ def MultiPR(y_true,        # list of true labels
 
     fig = go.Figure(data=traces, layout=layout)
 
-    return plotOut(fig, plot)
+    if return_auc:
+        return plotOut(fig, plot),
+    else:
+        return plotOut(fig, plot)
 
 
-def plotConfusionMatrix(y_true, # list of true labels
-                        y_pred, # list of predicted labels
-                        conf_matrix = None, # optional mode to directly provide confusion matrix
-                        title = None,
-                        labels = None, # list of labels for each class
-                        binarized = None, # if int/str then makes 1vsAll confusion matrix of that class
-                        add_totals = True, # whether to add an extra row for class totals
-                        plot = True, # 1/0. If 0, returns plotly json object, but doesnt plot
+def plotConfusionMatrix(y_true,         # list of true labels
+                        y_pred,         # list of predicted labels
+                        conf_matrix=None,   # optional mode to directly provide confusion matrix
+                        title=None,
+                        labels=None,    # list of labels for each class
+                        binarized=None,  # if int/str then makes 1vsAll confusion matrix of that class
+                        add_totals=True,  # whether to add an extra row for class totals
+                        plot=True,      # 1/0. If 0, returns plotly json object, but doesnt plot
                         fontsize=18,    # axis font
-                        norm='rows',     # how to norm matrix colors. either 'all'/'rows'/'columns'
+                        norm='rows',    # how to norm matrix colors. either 'all'/'rows'/'columns'
                 ):
     """
     Plots either a full or binarized confusion matrix
@@ -266,14 +309,14 @@ def plotConfusionMatrix(y_true, # list of true labels
         fn = np.sum(np.delete(conf_matrix, bin_indx, axis=0)[:, bin_indx])
         tn = conf_matrix[bin_indx, bin_indx]
         conf_matrix = np.array([[tp, fn], [fp, tn]])
-        labels = ['T','F']
+        labels = ['T', 'F']
         n_classes = 2
 
     labels = [str(x) for x in labels]   # convert to str
-    labels = ['['+x+']' if len(x)==1 else x for x in labels]    #needed for stupid plotly bug
+    labels = ['['+x+']' if len(x) == 1 else x for x in labels]    #needed for stupid plotly bug
 
     # adds an extra row for matrix totals
-    conf_matrix_tots =  copy.deepcopy(conf_matrix)
+    conf_matrix_tots = copy.deepcopy(conf_matrix)
     if add_totals:
         pred_tots = np.sum(conf_matrix, 0)
         conf_matrix_tots = np.vstack((conf_matrix, pred_tots))
@@ -334,7 +377,7 @@ def plotConfusionMatrix(y_true, # list of true labels
     fig.layout.showlegend = False
     # Add label text to axis values
     fig.layout.xaxis.tickmode = 'array'
-    fig.layout.xaxis.range = [-.5, n_classes+.5]
+    fig.layout.xaxis.range = [-.5, n_classes+.5] if add_totals else [-.5, n_classes - .5]
     fig.layout.xaxis.tickvals = num_labels
     fig.layout.xaxis.ticktext = labels_short
     fig.data[0].hoverlabel.bgcolor = 'rgb(188,202,225)'
@@ -343,7 +386,7 @@ def plotConfusionMatrix(y_true, # list of true labels
 
     # fig.layout.yaxis.autorange = 'reversed'
     fig.layout.yaxis.tickmode = 'array'
-    fig.layout.yaxis.range = [n_classes+.5, -.5]
+    fig.layout.yaxis.range = [n_classes + .5, -.5] if add_totals else [n_classes - .5, -.5]
     fig.layout.yaxis.tickvals = num_labels
     fig.layout.yaxis.ticktext = labels_short
     fig.layout.margin.l = 120   # adjust left margin to avoid ylbl overlaying tick str's

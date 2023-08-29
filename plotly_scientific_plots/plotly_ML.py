@@ -135,7 +135,7 @@ def MultiROC(y_true,        # list of true labels
     fig = go.Figure(data=traces, layout=layout)
 
     if return_auc:
-        return plotOut(fig, plot),
+        return plotOut(fig, plot), auc[0]
     else:
         return plotOut(fig, plot)
 

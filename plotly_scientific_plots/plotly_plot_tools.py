@@ -340,32 +340,24 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
 
     # 1st convert t ndarray
     y, x, z, names, info = _massageData(y, x=x, z=z, names=names, txt=text)
+    if text is not None:
+        text = np.array(text)
 
     # assert info['x_info']['shared'], 'All x & y vectors must be same length!!!'
 
     N = info['n_sigs']
-    Lx = np.array([info['n_bins']] * N)
+    Lx = np.array([info['n_bins']] * N) if np.isscalar(info['n_bins']) else np.array(info['n_bins'])
     assert len(np.unique(Lx)) == 1, 'All x & y vectors must be same length!!!'
 
     # if data has too many points, remove some for speed
-    Iplot = [np.arange(Lx[n]) if Lx[n] < maxdata else np.random.choice(Lx[n], size=maxdata, replace=False)
-             for n in range(N)]
-
-    # (2) remove NaNs
-    tmpx, tmpy = [], []
-    for n in range(N):
-        bad = np.atleast_2d(np.isnan(x[n]) | np.isnan(y[n]))
-        tmpx += [x[n][~bad[0]]]
-        tmpy += [y[n][~bad[0]]]
-    x = np.array(tmpx)
-    y = np.array(tmpy)
-
+    Iplot = np.array([np.arange(Lx[n]) if Lx[n] < maxdata else np.random.choice(Lx[n], size=maxdata, replace=False)
+             for n in range(N)]).astype(int)
 
     traces = []
 
     # determine scatterpoint colors
     if info['z_info']['provided'] is True:
-        assert N==1, 'So far coloring only works w/ 1 data series'
+        assert N == 1, 'So far coloring only works w/ 1 data series'
         cols = z
         showleg = False
         showscale = True
@@ -373,7 +365,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
         lg = [None]
         scattertext = ['z=%d' % (i) for i in range(Lx[0])] if text is None else text
     else:
-        if N>1:
+        if N > 1:
             lg = names
             showleg = False
             cols = cl.scales[str(max(3, N))]['qual']['Set1']
@@ -383,10 +375,24 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
             cols=['blue']
         line_col = cols
         showscale = False
-        if text is None:
-            scattertext = ''
-        else:
-            scattertext = text[Iplot[0]]
+        if text is not None:  # scattertext should be same shape as x!
+            scattertext = np.atleast_2d(text)
+            if scattertext.shape[0] == 1 and N > 1:
+                scattertext = np.tile(scattertext, (N, 1))
+
+    # (2) remove NaNs
+    tmpx, tmpy, tmp_ip, tmp_st = [], [], [], []
+    for n in range(N):
+        bad = np.atleast_2d(np.isnan(x[n]) | np.isnan(y[n]))
+        tmpx += [x[n][~bad[0]]]
+        tmpy += [y[n][~bad[0]]]
+        tmp_ip += [Iplot[n][:sum(~bad[0])]]
+        if text is not None:
+            tmp_st += [scattertext[n][~bad[0]]]
+    x = np.array(tmpx)
+    y = np.array(tmpy)
+    scattertext = np.array(tmp_st)
+    Iplot = np.array(tmp_ip)
 
     # scale markersize
     Lxp = np.min([max(Lx),maxdata])
@@ -407,7 +413,8 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
             markersize = 9
 
     scatPlot = [go.Scatter(x=x[n][Iplot[n]], y=y[n][Iplot[n]], name=names[n], legendgroup=lg[n], mode='markers',
-                           opacity=.5, text=scattertext,
+                           opacity=.5,
+                           text=scattertext[n][Iplot[n]] if text is not None else '',
                            marker={'size': markersize, 'color':cols[n], 'showscale':showscale, 'colorscale':'Portland'})
                 for n in range(N)]
     traces += scatPlot
@@ -485,7 +492,7 @@ def scatterHistoPlot(x,
     )
     data += [scatter_plot]
     if do_contour:
-        contour_plot = go.Histogram2dcontour(
+        contour_plot = go.Histogram2dContour(
             x=x, y=y, name='density', ncontours=20,
             colorscale='Hot', reversescale=True, showscale=False
         )
@@ -558,6 +565,7 @@ def basicBarPlot(data,          # See docstring
                  title='',
                  ylbl='',
                  xlbl='',
+                 error=None,
                  text=None,     # list of txt vals or 'numb' for numbers
                  sort=False,     # if True, sorts from greatest to least
                  line=None,     # add line perpendicular to bars (eg to show mean)

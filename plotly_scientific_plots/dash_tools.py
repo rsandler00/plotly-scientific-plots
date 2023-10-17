@@ -52,6 +52,7 @@ def dashSubplot(plots,
 def horizontlDiv(dashlist,
                  id='L',    # either single element or list. If single, id of html divs will be this + # (ie 'L1', 'L2', etc..
                  width=50): #either total width or list of indiv widths
+    ''' Creates a horizontal Div line '''
     N = len(dashlist)
     if type(width) == int:
         indiv_width = [str(int(width/N))+'%'] * N

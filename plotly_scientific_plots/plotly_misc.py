@@ -27,14 +27,14 @@ def placeholder_figure(id):
 def plotOut(fig,
             plot=True,
             mode='auto', # 'auto'/'tab'. If 'tab' forces to plot in seperate tab even if in notebook
-            filename='temp_plot.html',
+            filename=None,
             ):
     """ Standard code snippet to decide whether to return plotly fig object or plot """
     if plot:
         if in_notebook() and mode == 'auto':
             plotfunc = pyo.iplot
         else:
-            plotfunc = lambda x: pyo.plot(x, filename=filename)
+            plotfunc = lambda x: pyo.plot(x, filename=filename or 'temp_plot.html')
         plotfunc(fig)
         return fig
     else:

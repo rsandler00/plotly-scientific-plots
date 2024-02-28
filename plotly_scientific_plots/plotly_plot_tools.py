@@ -104,6 +104,7 @@ def plotHist(data,              # 1D list/np vector of data
 def plot2Hists(x1,              # data of 1st histogram
                x2,              # data of 2nd histogram
                names=['A','B'], # legend names of x1, x2 (ex: ['A','B']
+               xlbl='',
                maxData=500,     # max # of points to plot above histogram (if too high, it will be slow)
                normHist=True,   # 1/0. if 1, norms the histogram to a PDF
                samebins=True,   # whether both hists should have same edges
@@ -201,7 +202,7 @@ def plot2Hists(x1,              # data of 1st histogram
     fig = go.Figure(data=traces,
                     layout={'title': title,
                             'yaxis': {'title': ylbl},
-                            'xaxis': {'range': plotrng},
+                            'xaxis': {'range': plotrng, 'title': xlbl},
                             'barmode': 'overlay',
                             'bargap': 0,
                             'hovermode': 'closest',
@@ -386,7 +387,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
         bad = np.atleast_2d(np.isnan(x[n]) | np.isnan(y[n]))
         tmpx += [x[n][~bad[0]]]
         tmpy += [y[n][~bad[0]]]
-        tmp_ip += [Iplot[n][:sum(~bad[0])]]
+        tmp_ip += [Iplot[n][Iplot[n] < tmpx[-1].size]]
         if text is not None:
             tmp_st += [scattertext[n][~bad[0]]]
     x = np.array(tmpx)
@@ -1190,7 +1191,7 @@ def boxPlot(med, quartiles, minmax, mean=None, outliers=None, name='boxplot', ho
 
 
 def scatterMatrix(df,
-                  title = 'Scatterplot Matrix',
+                  title='Scatterplot Matrix',
                   plot=True):  # if false, just returns plotly json object
     """
     This makes a scattermatrix for data
@@ -1265,48 +1266,47 @@ def tornadoPlot(vals,   # in Nx3 array, where columns are[low_val, orig_val, hig
     return plotOut(fig, plot)
 
 
-def plotTable2(data,
-               col_headers,
-               row_headers=None,
-              width=None,
-              plot=True,
-              title=None,
-               sig_figs=3, # amount of significant figures to plot
-              ):
+def plotTable2(data, col_headers, row_headers=None, width=None, plot=True, title=None, sig_figs=3):
     '''
-    Wrapper for plotly table function
-    :return:
+    Modified wrapper for Plotly table function to handle statistics with bounds.
+    :return: Plotly figure or table depending on 'plot' parameter
     '''
-    colors = cl.scales['5']['seq']['Blues']
+    colors = ['#7D7F80', '#a1c3d1', '#EDFAFF']  # Example color scheme
 
-    if sig_figs is not None:
-        data = np.round(data, sig_figs)
+    # Prepare data, skip rounding if data is a string (contains bounds)
+    processed_data = []
+    for row in data:
+        processed_row = []
+        for item in row:
+            if isinstance(item, str) or sig_figs is None:
+                processed_row.append(item)
+            else:
+                processed_row.append(np.round(item, sig_figs))
+        processed_data.append(processed_row)
 
     if row_headers is not None:
-        data = np.concatenate((np.atleast_2d(row_headers), data), axis=0)
+        processed_data = [row_headers] + processed_data
         col_headers = [''] + col_headers
 
+    # Define the table trace
     trace = go.Table(
         header=dict(values=col_headers,
-                    line=dict(color='#7D7F80'),
-                    fill=dict(color='#a1c3d1'),
-                    font=dict(color='white', size=12),
-                    height=None,    # row-height
-                    align=['left'] * 5),
-        cells=dict(values=data,
-                   line=dict(color='#7D7F80'),
-                   fill=dict(color='#EDFAFF'),
-                   align=['left'] * 5),
-        hoverinfo='x+y+name'
+                    fill=dict(color=colors[1]),
+                    align='left',
+                    font=dict(color='white', size=12)),
+        cells=dict(values=processed_data,
+                   fill=dict(color=colors[2]),
+                   align='left'),
     )
 
-    layout = dict(
+    # Define the layout
+    layout = go.Layout(
         width=width,
-        height=None,
         title=title
-
     )
-    fig = dict(data= [trace], layout=layout)
+
+    # Create the figure
+    fig = go.Figure(data=[trace], layout=layout)
 
     return plotOut(fig, plot)
 

@@ -1520,6 +1520,60 @@ def plot_2d_table(matrix = None,  # optional mode to directly provide confusion 
     return plotOut(fig, plot)
 
 
+def combine_multiple_bar_plots(plots, prefixes, title=None, ylbl=None, xlbl=None, plot=True):
+    """
+    Combines an arbitrary number of Plotly bar plots into a single figure,
+    applying a unique prefix to the x-axis labels of each input plot to
+    distinguish between them. This version supports plots with multiple
+    data series (columns).
+
+    Parameters:
+    - plots (list of plotly.graph_objs.Figure objects): A list of Plotly Figure objects,
+      each containing one or more bar plots to be combined.
+    - prefixes (list of str): A list of prefixes corresponding to each plot, used to
+      prepend to the x-axis labels of that plot for differentiation in the combined figure.
+
+    Returns:
+    - plotly.graph_objs.Figure: A new Plotly Figure object containing the combined bar plots
+      with updated x-axis labels to reflect their source plot as indicated by the prefixes.
+
+    Note:
+    - This function assumes all input plots have the same number of data series and
+      they are in the order they should be combined. If plots have a different number of
+      series or a different structure, adjustments to the function may be necessary.
+    """
+    combined_data = []
+    num_columns = len(plots[0]['data'])  # Assuming all plots have the same number of columns
+
+    # Iterate over each column
+    for i in range(num_columns):
+        for pp, prefix in zip(plots, prefixes):
+            data_series = pp['data'][i]
+            x = [f"{prefix}{label}" for label in data_series.x]  # Apply prefix to x-axis labels
+            y = data_series.y
+            text = data_series.text if hasattr(data_series, 'text') else [''] * len(x)
+            # Create a new Bar object for this data series
+            new_bar = go.Bar(name=f"{prefix.rstrip('_')}_{data_series.name}", x=x, y=y, text=text,
+                             textposition='auto', marker=data_series.marker,
+                             opacity=0.6)
+            combined_data.append(new_bar)
+
+    # Define the layout
+    title = title or plots[0].layout.title
+    xlbl = xlbl or plots[0].layout.xaxis.title
+    ylbl = ylbl or plots[0].layout.yaxis.title
+    layout = go.Layout(
+        title=title,
+        hovermode='closest',
+        xaxis=dict(title=xlbl),
+        yaxis=dict(title=ylbl),
+        barmode='group'
+    )
+
+    # Create a new figure with the combined data and layout
+    fig = go.Figure(data=combined_data, layout=layout)
+    return plotOut(fig, plot)
+
 
 if __name__ == '__main__':
     # this code is purely for debugging

@@ -1273,6 +1273,10 @@ def plotTable2(data, col_headers, row_headers=None, width=None, plot=True, title
     '''
     colors = ['#7D7F80', '#a1c3d1', '#EDFAFF']  # Example color scheme
 
+    def truncate(n, decimals=0):
+        multiplier = 10 ** decimals
+        return int(n * multiplier) / multiplier
+
     # Prepare data, skip rounding if data is a string (contains bounds)
     processed_data = []
     for row in data:
@@ -1281,7 +1285,15 @@ def plotTable2(data, col_headers, row_headers=None, width=None, plot=True, title
             if isinstance(item, str) or sig_figs is None:
                 processed_row.append(item)
             else:
-                processed_row.append(np.round(item, sig_figs))
+                try:
+                    processed_row.append(np.round(item, sig_figs))
+                except Exception as e:
+                    print(f'failed to round {item} w/ sigfigs {sig_figs} due to {e}')
+                    try:
+                        processed_row.append(truncate(item, sig_figs))
+                    except Exception as ee:
+                        print(f'failed to truncate {item} w/ sigfigs {sig_figs} due to {ee}')
+                        processed_row.append(item)
         processed_data.append(processed_row)
 
     if row_headers is not None:

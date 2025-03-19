@@ -30,7 +30,7 @@ def MultiClassROC(y_true, y_scores, **kwargs):
     if y_scores.shape[1] == 1:  # assuming just giving scores of binary classifier
         return MultiROC(y_true, y_scores, **kwargs)
     n_samples, n_classes = y_scores.shape
-    encoder = OneHotEncoder(sparse_output=False, categories=np.atleast_2d(np.arange(n_classes)).tolist())
+    encoder = OneHotEncoder(sparse=False, categories=np.atleast_2d(np.arange(n_classes)).tolist())
     lbls_exp = encoder.fit_transform(y_true.reshape(-1, 1))
     if n_classes > 2:
         return MultiROC(lbls_exp, y_scores, **kwargs)
@@ -153,7 +153,7 @@ def MultiClassPR(y_true, y_scores, **kwargs):
     if y_scores.shape[1] == 1:  # assuming just giving scores of binary classifier
         return MultiPR(y_true, y_scores, **kwargs)
     n_samples, n_classes = y_scores.shape
-    encoder = OneHotEncoder(sparse_output=False, categories=np.atleast_2d(np.arange(n_classes)).tolist())
+    encoder = OneHotEncoder(sparse=False, categories=np.atleast_2d(np.arange(n_classes)).tolist())
     lbls_exp = encoder.fit_transform(y_true.reshape(-1, 1))
     return MultiPR(lbls_exp, y_scores, **kwargs)
     # if n_classes > 2:

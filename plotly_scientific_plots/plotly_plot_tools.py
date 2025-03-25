@@ -422,31 +422,34 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
 
     annots = []
     if addCorr:
-        for n in range(N):
-            slope, intercept, R2, p_val, std_err = sp.stats.linregress(x[n], y[n])
-            R2sp, p_val_sp = sp.stats.spearmanr(x[n], y[n])
-            corrtext = 'Pearson [R2, P]=[%.2f,%.2f] <br> ' \
-                       'Spearman [R2, P]=[%.2f,%.2f] <br> ' \
-                       'y=%.2fx+%.2f. N=%d' \
-                       % (R2, p_val, R2sp, p_val_sp, slope, intercept, Lx[n])
-            #if only 1 data record print stats on graph
-            annots += [dict(
-                x=0.05,
-                y=0.95 - .1 * n,
-                showarrow=False,
-                text=corrtext,
-                xref='paper',
-                yref='paper'
-            )]
-            if addCorrLine:
-                x_rng = [np.min(x[0]), np.max(x[0])]
-                dx_rng = x_rng[1] - x_rng[0]
-                shift = .03 # shift from edges
-                xc = np.array([x_rng[0]+dx_rng*shift, x_rng[1]-dx_rng*shift])
-                yc = slope*xc + intercept
-                corrline = [go.Scatter(x=xc, y=yc, name=names[n]+' corr', legendgroup=lg[n], showlegend=showleg,
-                            mode='lines', line={'color':line_col[n]}, hovertext=corrtext, hoverinfo='name+text')]
-                traces += corrline
+                for n in range(N):
+            try:
+                slope, intercept, R2, p_val, std_err = sp.stats.linregress(x[n], y[n])
+                R2sp, p_val_sp = sp.stats.spearmanr(x[n], y[n])
+                corrtext = 'Pearson [R2, P]=[%.2f,%.2f] <br> ' \
+                           'Spearman [R2, P]=[%.2f,%.2f] <br> ' \
+                           'y=%.2fx+%.2f. N=%d' \
+                           % (R2, p_val, R2sp, p_val_sp, slope, intercept, Lx[n])
+                #if only 1 data record print stats on graph
+                annots += [dict(
+                    x=0.05,
+                    y=0.95 - .1 * n,
+                    showarrow=False,
+                    text=corrtext,
+                    xref='paper',
+                    yref='paper'
+                )]
+                if addCorrLine:
+                    x_rng = [np.min(x[0]), np.max(x[0])]
+                    dx_rng = x_rng[1] - x_rng[0]
+                    shift = .03 # shift from edges
+                    xc = np.array([x_rng[0]+dx_rng*shift, x_rng[1]-dx_rng*shift])
+                    yc = slope*xc + intercept
+                    corrline = [go.Scatter(x=xc, y=yc, name=names[n]+' corr', legendgroup=lg[n], showlegend=showleg,
+                                mode='lines', line={'color':line_col[n]}, hovertext=corrtext, hoverinfo='name+text')]
+                    traces += corrline
+            except:
+                pass
 
     if addXYline:
         x_rng = [np.min(x[0]), np.max(x[0])]

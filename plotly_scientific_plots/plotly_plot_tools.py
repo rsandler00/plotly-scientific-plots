@@ -422,7 +422,7 @@ def corrPlot(x,                 # 1D data vector or list of 1D data vectors
 
     annots = []
     if addCorr:
-                for n in range(N):
+        for n in range(N):
             try:
                 slope, intercept, R2, p_val, std_err = sp.stats.linregress(x[n], y[n])
                 R2sp, p_val_sp = sp.stats.spearmanr(x[n], y[n])

@@ -1,12 +1,81 @@
 from multiprocessing import Process
 import numpy as np
+import io
+from base64 import b64encode
 import dash
 from dash import dcc
 from dash import html
+import dash_bootstrap_components as dbc
+import plotly.graph_objs as go
 import json
 import pickle
 from plotly_scientific_plots.plotly_misc import jsonify
 
+
+def create_html_download_button(figs, file_name="plotly_graph", button_name="Download as HTML"):
+    """
+    Creates a download button for Plotly figures
+    """
+    # Convert from dict to Plotly figs as needed
+    plotly_figs = []
+    for fig in figs:
+        if isinstance(fig, dict):
+            plotly_figs.append(go.Figure(fig))
+        else:
+            plotly_figs.append(fig)
+    figs = plotly_figs
+
+    # Handle multiple figures
+    if isinstance(figs, list) and len(figs) > 1:
+        figs = [fig for fig in figs if fig is not None]
+        main_buffer = io.StringIO()
+        outputs = []
+
+        # Write first figure with full HTML
+        _buffer = io.StringIO()
+        figs[0].write_html(_buffer, full_html=True, include_plotlyjs='cdn')
+        outputs.append(_buffer)
+
+        # Write remaining figures as divs
+        for fig in figs[1:]:
+            _buffer = io.StringIO()
+            fig.write_html(_buffer, full_html=False)
+            outputs.append(_buffer)
+
+        main_buffer.write(''.join([i.getvalue() for i in outputs]))
+    else:
+        # Handle single figure
+        main_buffer = io.StringIO()
+        if isinstance(figs, list):
+            figs[0].write_html(main_buffer, include_plotlyjs='cdn')
+        else:
+            figs.write_html(main_buffer, include_plotlyjs='cdn')
+
+    # Convert to base64
+    html_bytes = main_buffer.getvalue().encode()
+    encoded = b64encode(html_bytes).decode()
+
+    # Create download button
+    download_html = html.A(
+        button_name,
+        href="data:text/html;base64," + encoded,
+        download=file_name + ".html",
+        style={
+            'background-color': '#4CAF50',
+            'border': 'none',
+            'color': 'white',
+            'padding': '10px 20px',
+            'text-align': 'center',
+            'text-decoration': 'none',
+            'display': 'inline-block',
+            'font-size': '16px',
+            'margin': '4px 2px',
+            'cursor': 'pointer',
+            'border-radius': '4px'
+        }
+    )
+
+    return download_html
 
 ###Dash wrappers
 def dashSubplot(plots,
@@ -98,6 +167,8 @@ def startDashboardSerial(figs,
                         host=None,    # set to '0.0.0.0' to run as a server. Default val is None (localhost)
                         title='',
                         port=8050,
+                        add_download_button=True,
+                        download_filename="plotly_dashboard",
                         run=True,
                   ):
     """
@@ -125,7 +196,33 @@ def startDashboardSerial(figs,
         graphs += [g_col]
 
     app = dash.Dash()
-    app.layout = dashSubplot(graphs, min_width, max_width, indiv_widths, title)
+
+    # Create layout with optional download button
+    dashboard_layout = dashSubplot(graphs, min_width, max_width, indiv_widths, title)
+
+    if add_download_button:
+        # Extract the original figures before conversion to dash components
+        original_figs = []
+        for col in figs:
+            for fig in col:
+                if fig != [] and not isinstance(fig, dash.development.base_component.Component):
+                    original_figs.append(fig)
+
+        # Create the download button for all figures
+        download_button = create_html_download_button(
+            original_figs,
+            file_name=download_filename,
+            button_name="Download Dashboard as HTML"
+        )
+
+        # Add download button to layout
+        app.layout = html.Div([
+            html.Div(download_button, style={'margin': '10px'}),
+            dashboard_layout
+        ])
+    else:
+        app.layout = dashboard_layout
+
     if run:
         app.run_server(port=port, debug=False, host=host)
 

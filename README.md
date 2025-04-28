@@ -13,13 +13,12 @@ Its advantages over naive plotly are:
 ## Requirements and installation
 
 Required packages:
-* numpy
-* scipy
-* plotly
-* colorlover
-* dash
-* dash_core_components
-* dash_html_components
+* numpy==1.24.3
+* scipy==1.15.0
+* plotly==5.16.0
+* colorlover==0.3.0
+* statsmodel==0.14.4
+* dash==2.0.0
 
 To install, simply use `pip install plotly-scientific-plots`
 
